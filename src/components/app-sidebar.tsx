@@ -1,0 +1,159 @@
+import { LogOutIcon, UserIcon, Settings } from "lucide-react"
+import { useUserStore } from '@/store/user-store'
+import { useOrganizationStore } from '@/store/organization-store'
+
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+
+const data = {
+  navMain: [
+    {
+      title: "Gestionar personas",
+      url: "#",
+      items: [
+        {
+          title: "Empleados",
+          url: "/employees",
+          isActive: true,
+        },
+        {
+          title: "Visitantes",
+          url: "#",
+        },
+        {
+          title: "Gestionar asistencia",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Organizacion",
+      url: "#",
+      items: [
+        {
+          title: "Sucursales",
+          url: "#",
+        },
+        {
+          title: "Gestionar permisos",
+          url: "#",
+        },
+        {
+          title: "Reportes",
+          url: "#",
+        },
+      ],
+    },
+  ],
+}
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { organization } = useOrganizationStore()
+  const { user } = useUserStore()
+
+  return (
+    <Sidebar variant="floating" {...props}>
+      <SidebarHeader className="relative">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <a href="#">
+                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <img src="/sky-logo.png" alt="Sky HR" className="size-8 rounded-lg" />
+                </div>
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="font-medium">{organization?.name}</span>
+                </div>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <button
+          className="absolute top-4 right-4 z-50 flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          onClick={() => {
+            // Toggle sidebar by clicking the document's sidebar trigger
+            const trigger = document.querySelector('[data-sidebar="trigger"]') as HTMLElement
+            if (trigger) {
+              trigger.click()
+            }
+          }}
+        >
+        </button>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarMenu className="gap-2">
+            {data.navMain.map((item) => (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton asChild>
+                  <a href={item.url} className="font-medium">
+                    {item.title}
+                  </a>
+                </SidebarMenuButton>
+                {item.items?.length ? (
+                  <SidebarMenuSub className="ml-0 border-l-0 px-1.5">
+                    {item.items.map((item) => (
+                      <SidebarMenuSubItem key={item.title}>
+                        <SidebarMenuSubButton asChild isActive={item.isActive}>
+                          <a href={item.url}>{item.title}</a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                ) : null}
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <SidebarMenuButton size="lg" asChild>
+                    <a href="#" className="flex items-center gap-2">
+                      <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                        <UserIcon className="size-4" />
+                      </div>
+                      <div className="flex flex-col gap-0.5 leading-none">
+                        <span className="font-medium">{user?.name}</span>
+                        <span className="text-xs text-sidebar-foreground/70">{user?.email}</span>
+                      </div>
+                    </a>
+                  </SidebarMenuButton>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="w-48 p-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer">
+                      <Settings className="size-4" />
+                      <span className="text-sm">Configuración</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer text-red-600 hover:text-red-700">
+                      <LogOutIcon className="size-4" />
+                      <span className="text-sm">Cerrar sesión</span>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
+  )
+}
