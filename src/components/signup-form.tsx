@@ -8,12 +8,18 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { signUp } from "@/lib/auth"
+import { useRouter } from "@tanstack/react-router"
 
 export function SignupForm({
   className,
+  inviteToken,
+  redirect,
   ...props
-}: React.ComponentProps<"form">) {
-
+}: React.ComponentProps<"form"> & {
+  inviteToken: string
+  redirect: string
+}) {
+  const router = useRouter()
 
   async function handleSignUp(email: string, password: string, confirmPassword: string, name: string) {
     if (password !== confirmPassword) {
@@ -30,8 +36,11 @@ export function SignupForm({
       throw new Error("No data returned from sign up")
     }
 
-    alert("Cuenta creada correctamente")
     return data
+  }
+
+  async function handleAcceptInvitation(token: string) {
+    router.navigate({ to: '/accept-invitation', search: { token } })
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -43,6 +52,11 @@ export function SignupForm({
     const confirmPassword: string = (form.querySelector("#confirm-password") as HTMLInputElement).value;
 
     const data = await handleSignUp(email, password, confirmPassword, name)
+
+    if (inviteToken) {
+      await handleAcceptInvitation(inviteToken)
+    }
+
     console.log(data)
   }
 
@@ -80,7 +94,9 @@ export function SignupForm({
           <FieldDescription>Por favor, confirma tu contraseña.</FieldDescription>
         </Field>
         <Field>
-          <Button type="submit">Crear cuenta</Button>
+          <Button type="submit">
+            Crear cuenta
+          </Button>
         </Field>
         <Field>
           <FieldDescription className="px-6 text-center">

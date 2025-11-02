@@ -3,5 +3,5 @@ export default function Header() {
     <div>
       <h1>SkyHR</h1>
     </div>
-  )
+  );
 }

@@ -1,15 +1,15 @@
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { DataTable } from './data-table'
-import { Table as TanStackTable } from '@tanstack/react-table'
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "./data-table";
+import { Table as TanStackTable } from "@tanstack/react-table";
 
 interface DataTableCardProps<TData> {
-  title: string
-  table: TanStackTable<TData>
-  selectedCount?: number
-  bulkActionLabel?: string
-  onBulkAction?: () => void
-  className?: string
+  title: string;
+  table: TanStackTable<TData>;
+  selectedCount?: number;
+  bulkActionLabel?: string;
+  onBulkAction?: () => void;
+  className?: string;
 }
 
 export function DataTableCard<TData>({
@@ -31,8 +31,8 @@ export function DataTableCard<TData>({
                 {selectedCount} seleccionado(s)
               </span>
             )}
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               disabled={selectedCount === 0}
               onClick={onBulkAction}
@@ -46,5 +46,5 @@ export function DataTableCard<TData>({
         <DataTable table={table} />
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,43 +1,69 @@
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { login } from "@/lib/auth"
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { login } from "@/lib/auth";
+import { useRouter } from "@tanstack/react-router";
 
 export function LoginForm({
   className,
+  inviteToken,
+  redirect,
   ...props
-}: React.ComponentProps<"form">) {
-
+}: React.ComponentProps<"form"> & {
+  inviteToken: string;
+  redirect: string;
+}) {
+  const router = useRouter();
   async function handleLogin(email: string, password: string) {
-    const { data, error } = await login(email, password)
+    const { data, error } = await login(email, password);
+
     if (error) {
-      throw new Error(error.message)
+      throw new Error(error.message);
     }
 
     if (!data) {
-      throw new Error("No data returned from login")
+      throw new Error("No data returned from login");
     }
 
-    return data
+    return data;
   }
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.target as HTMLFormElement;
-    const email: string = (form.querySelector("#email") as HTMLInputElement).value;
-    const password: string = (form.querySelector("#password") as HTMLInputElement).value;
 
-    const data = await handleLogin(email, password)
-    console.log(data)
+  async function handleAcceptInvitation(token: string) {
+
+    router.navigate({ to: '/accept-invitation', search: { token } });
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const form = event.target as HTMLFormElement;
+    const email: string = (form.querySelector("#email") as HTMLInputElement)
+      .value;
+    const password: string = (
+      form.querySelector("#password") as HTMLInputElement
+    ).value;
+
+    const data = await handleLogin(email, password);
+
+    if (inviteToken) {
+      await handleAcceptInvitation(inviteToken);
+    }
+
+    console.log(data);
   }
 
   return (
-    <form className={cn("flex flex-col gap-6", className)} {...props} onSubmit={(event) => handleSubmit(event)}>
+    <form
+      className={cn("flex flex-col gap-6", className)}
+      {...props}
+      onSubmit={(event) => handleSubmit(event)}
+    >
       <FieldGroup>
         <div className="flex flex-col items-center gap-1 text-center">
           <h1 className="text-2xl font-bold">Iniciar sesión</h1>
@@ -47,7 +73,12 @@ export function LoginForm({
         </div>
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
-          <Input id="email" type="email" placeholder="ejemplo@correo.com" required />
+          <Input
+            id="email"
+            type="email"
+            placeholder="ejemplo@correo.com"
+            required
+          />
         </Field>
         <Field>
           <div className="flex items-center">
@@ -74,5 +105,5 @@ export function LoginForm({
         </Field>
       </FieldGroup>
     </form>
-  )
+  );
 }

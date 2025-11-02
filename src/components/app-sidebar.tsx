@@ -1,6 +1,6 @@
-import { LogOutIcon, UserIcon, Settings } from "lucide-react"
-import { useUserStore } from '@/store/user-store'
-import { useOrganizationStore } from '@/store/organization-store'
+import { LogOutIcon, UserIcon, Settings } from "lucide-react";
+import { useUserStore } from "@/store/user-store";
+import { useOrganizationStore } from "@/store/organization-store";
 
 import {
   Sidebar,
@@ -14,8 +14,13 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+} from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const data = {
   navMain: [
@@ -44,24 +49,28 @@ const data = {
       items: [
         {
           title: "Sucursales",
-          url: "#",
+          url: "/locations",
         },
         {
-          title: "Gestionar permisos",
-          url: "#",
+          title: "Horarios",
+          url: "/schedules",
         },
-        {
-          title: "Reportes",
-          url: "#",
-        },
+        // {
+        //   title: "Gestionar permisos",
+        //   url: "#",
+        // },
+        // {
+        //   title: "Reportes",
+        //   url: "#",
+        // },
       ],
     },
   ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { organization } = useOrganizationStore()
-  const { user } = useUserStore()
+  const { organization } = useOrganizationStore();
+  const { user } = useUserStore();
 
   return (
     <Sidebar variant="floating" {...props}>
@@ -71,7 +80,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton size="lg" asChild>
               <a href="#">
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <img src="/sky-logo.png" alt="Sky HR" className="size-8 rounded-lg" />
+                  <img
+                    src="/sky-logo.png"
+                    alt="Sky HR"
+                    className="size-8 rounded-lg"
+                  />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-medium">{organization?.name}</span>
@@ -84,13 +97,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           className="absolute top-4 right-4 z-50 flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
           onClick={() => {
             // Toggle sidebar by clicking the document's sidebar trigger
-            const trigger = document.querySelector('[data-sidebar="trigger"]') as HTMLElement
+            const trigger = document.querySelector(
+              '[data-sidebar="trigger"]',
+            ) as HTMLElement;
             if (trigger) {
-              trigger.click()
+              trigger.click();
             }
           }}
-        >
-        </button>
+        ></button>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -132,7 +146,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       </div>
                       <div className="flex flex-col gap-0.5 leading-none">
                         <span className="font-medium">{user?.name}</span>
-                        <span className="text-xs text-sidebar-foreground/70">{user?.email}</span>
+                        <span className="text-xs text-sidebar-foreground/70">
+                          {user?.email}
+                        </span>
                       </div>
                     </a>
                   </SidebarMenuButton>
@@ -155,5 +171,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

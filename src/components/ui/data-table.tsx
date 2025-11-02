@@ -1,7 +1,4 @@
-import {
-  flexRender,
-  Table as TanStackTable,
-} from "@tanstack/react-table"
+import { flexRender, Table as TanStackTable } from "@tanstack/react-table";
 
 import {
   Table,
@@ -10,16 +7,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
 interface DataTableProps<TData> {
-  table: TanStackTable<TData>
+  table: TanStackTable<TData>;
 }
 
-export function DataTable<TData>({
-  table,
-}: DataTableProps<TData>) {
-
+export function DataTable<TData>({ table }: DataTableProps<TData>) {
   return (
     <div className="overflow-hidden rounded-md border">
       <Table>
@@ -33,10 +27,10 @@ export function DataTable<TData>({
                       ? null
                       : flexRender(
                           header.column.columnDef.header,
-                          header.getContext()
+                          header.getContext(),
                         )}
                   </TableHead>
-                )
+                );
               })}
             </TableRow>
           ))}
@@ -57,7 +51,10 @@ export function DataTable<TData>({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
+              <TableCell
+                colSpan={table.getAllColumns().length}
+                className="h-24 text-center"
+              >
                 No results.
               </TableCell>
             </TableRow>
@@ -65,5 +62,5 @@ export function DataTable<TData>({
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }
