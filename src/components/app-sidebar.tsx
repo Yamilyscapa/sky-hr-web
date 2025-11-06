@@ -39,7 +39,7 @@ const data = {
         },
         {
           title: "Gestionar asistencia",
-          url: "#",
+          url: "/attendance",
         },
       ],
     },

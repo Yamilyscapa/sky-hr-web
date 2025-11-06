@@ -9,23 +9,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isAuthenticated } from "@/server/auth.server";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/(organization)/accept-invitation")({
   component: RouteComponent,
-  beforeLoad: async () => {
+  beforeLoad: async ({ search }) => {
     const auth = await isAuthenticated();
+    const token = (search as any).token as string;
 
-    if (auth) {
-      throw redirect({ to: "/login" });
+    // If not authenticated, redirect to login with invitation token
+    if (!auth && token) {
+      throw redirect({ 
+        to: "/login",
+        search: { redirect: "/accept-invitation", token }
+      });
+    }
+
+    // If authenticated but no token, redirect to home
+    if (auth && !token) {
+      throw redirect({ to: "/" });
     }
   },
   validateSearch: (search: Record<string, unknown>) => {
@@ -42,19 +43,9 @@ function RouteComponent() {
     "loading",
   );
   const [message, setMessage] = useState("");
-  const [authModal, setAuthModal] = useState<boolean>(false);
 
   useEffect(() => {
     async function acceptInvitation() {
-      const auth = await isAuthenticated();
-
-      if (!auth) {
-        setAuthModal(true);
-        return;
-      } else {
-        setAuthModal(false);
-      }
-
       if (!token) {
         setStatus("error");
         setMessage("No se proporcionó un token de invitación válido.");
@@ -90,41 +81,6 @@ function RouteComponent() {
 
   return (
     <>
-      {authModal ? (
-        <Dialog open={authModal} onOpenChange={setAuthModal}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Error al aceptar la invitación</DialogTitle>
-              <DialogDescription>
-                Necesita una cuenta para aceptar la invitación.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                onClick={() =>
-                  navigate({
-                    to: "/login",
-                    search: { redirect: "/accept-invitation", token },
-                  })
-                }
-              >
-                Iniciar sesión
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  navigate({
-                    to: "/signup",
-                    search: { redirect: "/accept-invitation", token },
-                  })
-                }
-              >
-                Registrarse
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
       <div className="container mx-auto max-w-2xl py-8">
         <Card>
           <CardHeader>

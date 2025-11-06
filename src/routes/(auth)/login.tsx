@@ -4,12 +4,24 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/(auth)/login")({
   component: RouteComponent,
-  beforeLoad: async () => {
+  beforeLoad: async ({ search }) => {
     const auth = await isAuthenticated();
+    const redirectPath = (search as any).redirect as string;
+    const token = (search as any).token as string;
 
     if (auth) {
+      // If authenticated and has invitation token, redirect to accept-invitation
+      if (redirectPath === "/accept-invitation" && token) {
+        throw redirect({ to: "/accept-invitation", search: { token } });
+      }
       throw redirect({ to: "/" });
     }
+  },
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      redirect: (search.redirect as string) || "",
+      token: (search.token as string) || "",
+    };
   },
 });
 

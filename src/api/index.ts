@@ -5,6 +5,38 @@ export class API {
     this.baseUrl = process.env.API_URL ?? "http://localhost:8080";
   }
 
+  // Helper method to handle responses
+  private async handleResponse<T = any>(response: Response): Promise<T> {
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`HTTP error! status: ${response.status}`, text);
+      
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = JSON.parse(text);
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch {
+        // Not JSON, use default error message
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      if (text) {
+        console.error("Expected JSON but got:", text);
+      }
+      // For successful responses without JSON, return undefined
+      return undefined as T;
+    }
+
+    return await response.json();
+  }
+
   // Generic API methods
   public async get(url: string) {
     return await fetch(`${this.baseUrl}${url}`, {
@@ -16,6 +48,17 @@ export class API {
   public async post(url: string, data: any) {
     return await fetch(`${this.baseUrl}${url}`, {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async put(url: string, data: any) {
+    return await fetch(`${this.baseUrl}${url}`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
@@ -125,6 +168,59 @@ export class API {
 
   public async getGeofencesByOrganization(organizationId: string) {
     return await this.get(`/geofence/get-by-organization?id=${organizationId}`);
+  }
+
+  // Attendance API methods
+  public async getAttendanceReport(params?: {
+    start_date?: string;
+    end_date?: string;
+    user_id?: string;
+    status?: string;
+  }) {
+    const queryParams = params ? new URLSearchParams(params as any).toString() : "";
+    const url = `/attendance/report${queryParams ? `?${queryParams}` : ""}`;
+    const response = await this.get(url);
+    return await this.handleResponse(response);
+  }
+
+  public async validateQR(qr_data: string) {
+    const response = await this.post("/attendance/qr/validate", { qr_data });
+    return await this.handleResponse(response);
+  }
+
+  public async checkIn(formData: FormData) {
+    const response = await fetch(`${this.baseUrl}/attendance/check-in`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    return await this.handleResponse(response);
+  }
+
+  public async checkOut(formData: FormData) {
+    const response = await fetch(`${this.baseUrl}/attendance/check-out`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    return await this.handleResponse(response);
+  }
+
+  public async updateAttendanceStatus(eventId: string, data: {
+    status: "on_time" | "late" | "early" | "absent" | "out_of_bounds";
+    notes?: string;
+  }) {
+    const response = await this.put(`/attendance/admin/update-status/${eventId}`, data);
+    return await this.handleResponse(response);
+  }
+
+  public async markAbsences(data?: {
+    user_ids?: string[];
+    date?: string; // YYYY-MM-DD format
+    notes?: string;
+  }) {
+    const response = await this.post("/attendance/admin/mark-absences", data || {});
+    return await this.handleResponse(response);
   }
 }
 

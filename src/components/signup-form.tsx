@@ -51,13 +51,22 @@ export function SignupForm({
     const password: string = (form.querySelector("#password") as HTMLInputElement).value;
     const confirmPassword: string = (form.querySelector("#confirm-password") as HTMLInputElement).value;
 
-    const data = await handleSignUp(email, password, confirmPassword, name)
+    try {
+      await handleSignUp(email, password, confirmPassword, name)
 
-    if (inviteToken) {
-      await handleAcceptInvitation(inviteToken)
+      // After successful signup, redirect based on context
+      if (inviteToken) {
+        // If there's an invite token, go to accept invitation
+        await handleAcceptInvitation(inviteToken)
+      } else {
+        // Otherwise, invalidate and let the router redirect appropriately
+        await router.invalidate()
+        await router.navigate({ to: "/" })
+      }
+    } catch (error) {
+      console.error("Error during signup:", error)
+      alert(error instanceof Error ? error.message : "Error al crear la cuenta")
     }
-
-    console.log(data)
   }
 
   return (
@@ -100,7 +109,12 @@ export function SignupForm({
         </Field>
         <Field>
           <FieldDescription className="px-6 text-center">
-            Ya tienes una cuenta? <a href="/login" className="underline underline-offset-4">Iniciar sesión</a>
+            Ya tienes una cuenta? <a 
+              href={`/login${inviteToken ? `?redirect=${redirect}&token=${inviteToken}` : ''}`} 
+              className="underline underline-offset-4"
+            >
+              Iniciar sesión
+            </a>
           </FieldDescription>
         </Field>
       </FieldGroup>

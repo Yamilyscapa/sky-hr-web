@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as peopleEmployeesRouteImport } from './routes/(people)/employees'
+import { Route as organizationGettingStartedRouteImport } from './routes/(organization)/getting-started'
 import { Route as organizationCreateOrganizationRouteImport } from './routes/(organization)/create-organization'
 import { Route as organizationAcceptInvitationRouteImport } from './routes/(organization)/accept-invitation'
 import { Route as companySchedulesRouteImport } from './routes/(company)/schedules'
 import { Route as companyLocationsRouteImport } from './routes/(company)/locations'
+import { Route as companyAttendanceRouteImport } from './routes/(company)/attendance'
 import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 
@@ -28,6 +30,12 @@ const peopleEmployeesRoute = peopleEmployeesRouteImport.update({
   path: '/employees',
   getParentRoute: () => rootRouteImport,
 } as any)
+const organizationGettingStartedRoute =
+  organizationGettingStartedRouteImport.update({
+    id: '/(organization)/getting-started',
+    path: '/getting-started',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const organizationCreateOrganizationRoute =
   organizationCreateOrganizationRouteImport.update({
     id: '/(organization)/create-organization',
@@ -50,6 +58,11 @@ const companyLocationsRoute = companyLocationsRouteImport.update({
   path: '/locations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const companyAttendanceRoute = companyAttendanceRouteImport.update({
+  id: '/(company)/attendance',
+  path: '/attendance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const authSignupRoute = authSignupRouteImport.update({
   id: '/(auth)/signup',
   path: '/signup',
@@ -65,20 +78,24 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
+  '/attendance': typeof companyAttendanceRoute
   '/locations': typeof companyLocationsRoute
   '/schedules': typeof companySchedulesRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
+  '/getting-started': typeof organizationGettingStartedRoute
   '/employees': typeof peopleEmployeesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
+  '/attendance': typeof companyAttendanceRoute
   '/locations': typeof companyLocationsRoute
   '/schedules': typeof companySchedulesRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
+  '/getting-started': typeof organizationGettingStartedRoute
   '/employees': typeof peopleEmployeesRoute
 }
 export interface FileRoutesById {
@@ -86,10 +103,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/signup': typeof authSignupRoute
+  '/(company)/attendance': typeof companyAttendanceRoute
   '/(company)/locations': typeof companyLocationsRoute
   '/(company)/schedules': typeof companySchedulesRoute
   '/(organization)/accept-invitation': typeof organizationAcceptInvitationRoute
   '/(organization)/create-organization': typeof organizationCreateOrganizationRoute
+  '/(organization)/getting-started': typeof organizationGettingStartedRoute
   '/(people)/employees': typeof peopleEmployeesRoute
 }
 export interface FileRouteTypes {
@@ -98,30 +117,36 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/attendance'
     | '/locations'
     | '/schedules'
     | '/accept-invitation'
     | '/create-organization'
+    | '/getting-started'
     | '/employees'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/signup'
+    | '/attendance'
     | '/locations'
     | '/schedules'
     | '/accept-invitation'
     | '/create-organization'
+    | '/getting-started'
     | '/employees'
   id:
     | '__root__'
     | '/'
     | '/(auth)/login'
     | '/(auth)/signup'
+    | '/(company)/attendance'
     | '/(company)/locations'
     | '/(company)/schedules'
     | '/(organization)/accept-invitation'
     | '/(organization)/create-organization'
+    | '/(organization)/getting-started'
     | '/(people)/employees'
   fileRoutesById: FileRoutesById
 }
@@ -129,10 +154,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   authLoginRoute: typeof authLoginRoute
   authSignupRoute: typeof authSignupRoute
+  companyAttendanceRoute: typeof companyAttendanceRoute
   companyLocationsRoute: typeof companyLocationsRoute
   companySchedulesRoute: typeof companySchedulesRoute
   organizationAcceptInvitationRoute: typeof organizationAcceptInvitationRoute
   organizationCreateOrganizationRoute: typeof organizationCreateOrganizationRoute
+  organizationGettingStartedRoute: typeof organizationGettingStartedRoute
   peopleEmployeesRoute: typeof peopleEmployeesRoute
 }
 
@@ -150,6 +177,13 @@ declare module '@tanstack/react-router' {
       path: '/employees'
       fullPath: '/employees'
       preLoaderRoute: typeof peopleEmployeesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(organization)/getting-started': {
+      id: '/(organization)/getting-started'
+      path: '/getting-started'
+      fullPath: '/getting-started'
+      preLoaderRoute: typeof organizationGettingStartedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(organization)/create-organization': {
@@ -180,6 +214,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof companyLocationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(company)/attendance': {
+      id: '/(company)/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof companyAttendanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/(auth)/signup': {
       id: '/(auth)/signup'
       path: '/signup'
@@ -201,10 +242,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   authLoginRoute: authLoginRoute,
   authSignupRoute: authSignupRoute,
+  companyAttendanceRoute: companyAttendanceRoute,
   companyLocationsRoute: companyLocationsRoute,
   companySchedulesRoute: companySchedulesRoute,
   organizationAcceptInvitationRoute: organizationAcceptInvitationRoute,
   organizationCreateOrganizationRoute: organizationCreateOrganizationRoute,
+  organizationGettingStartedRoute: organizationGettingStartedRoute,
   peopleEmployeesRoute: peopleEmployeesRoute,
 }
 export const routeTree = rootRouteImport

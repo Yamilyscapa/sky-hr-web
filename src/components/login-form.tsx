@@ -49,13 +49,22 @@ export function LoginForm({
       form.querySelector("#password") as HTMLInputElement
     ).value;
 
-    const data = await handleLogin(email, password);
+    try {
+      await handleLogin(email, password);
 
-    if (inviteToken) {
-      await handleAcceptInvitation(inviteToken);
+      // After successful login, redirect based on context
+      if (inviteToken) {
+        // If there's an invite token, go to accept invitation
+        await handleAcceptInvitation(inviteToken);
+      } else {
+        // Otherwise, invalidate and let the router redirect appropriately
+        await router.invalidate();
+        await router.navigate({ to: "/" });
+      }
+    } catch (error) {
+      console.error("Error during login:", error);
+      alert(error instanceof Error ? error.message : "Error al iniciar sesión");
     }
-
-    console.log(data);
   }
 
   return (
@@ -98,7 +107,10 @@ export function LoginForm({
         <Field>
           <FieldDescription className="text-center">
             No tienes una cuenta?{" "}
-            <a href="/signup" className="underline underline-offset-4">
+            <a 
+              href={`/signup${inviteToken ? `?redirect=${redirect}&token=${inviteToken}` : ''}`} 
+              className="underline underline-offset-4"
+            >
               Registrate
             </a>
           </FieldDescription>

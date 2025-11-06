@@ -57,6 +57,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     "/signup",
     "/create-organization",
     "/accept-invitation",
+    "/getting-started",
   ];
   
   const showSidebar = !routesWithoutSidebar.includes(
