@@ -171,15 +171,20 @@ export class API {
   }
 
   // Attendance API methods
-  public async getAttendanceReport(params?: {
+  public async getAttendanceEvents(params?: {
+    user_id?: string;
     start_date?: string;
     end_date?: string;
-    user_id?: string;
     status?: string;
   }) {
     const queryParams = params ? new URLSearchParams(params as any).toString() : "";
-    const url = `/attendance/report${queryParams ? `?${queryParams}` : ""}`;
+    const url = `/attendance/events${queryParams ? `?${queryParams}` : ""}`;
     const response = await this.get(url);
+    return await this.handleResponse(response);
+  }
+
+  public async getAttendanceReport() {
+    const response = await this.get("/attendance/report");
     return await this.handleResponse(response);
   }
 
