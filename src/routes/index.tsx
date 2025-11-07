@@ -549,7 +549,7 @@ function App() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 pb-12">
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>

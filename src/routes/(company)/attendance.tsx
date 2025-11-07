@@ -909,7 +909,7 @@ function RouteComponent() {
   };
 
   return (
-    <div className="container mx-auto">
+    <div className="space-y-6 p-6 pb-12">
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
