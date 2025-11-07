@@ -36,6 +36,7 @@
     "better-auth": "^1.3.28",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "esbuild": "^0.25.12",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.544.0",
     "react": "^19.0.0",

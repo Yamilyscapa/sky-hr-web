@@ -583,7 +583,7 @@ export const Route = createFileRoute("/(people)/employees")({
   beforeLoad: async () => {
     const auth = await isAuthenticated();
     if (!auth) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: "/login", search: { redirect: "", token: "" } });
     }
   },
 });
