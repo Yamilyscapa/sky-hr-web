@@ -29,7 +29,7 @@ import { getCoreRowModel, getSortedRowModel } from "@tanstack/react-table";
 import { ArrowUpDown, MoreHorizontal, Edit, Trash2, Eye, Clock, MapPin } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
-import API from "@/api";
+import API, { extractListData } from "@/api";
 import { useUserStore } from "@/store/user-store";
 import { useOrganizationStore } from "@/store/organization-store";
 
@@ -752,23 +752,7 @@ function RouteComponent() {
 
     try {
       const response = await API.getGeofencesByOrganization(organization.id);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      let geofencesList: Geofence[] = [];
-
-      // Handle various response formats
-      if (Array.isArray(data)) {
-        geofencesList = data;
-      } else if (data.data && Array.isArray(data.data)) {
-        geofencesList = data.data;
-      } else if (data.geofences && Array.isArray(data.geofences)) {
-        geofencesList = data.geofences;
-      }
-
+      const geofencesList = extractListData<Geofence>(response);
       setGeofences(geofencesList);
     } catch (error) {
       console.error("Error fetching geofences:", error);

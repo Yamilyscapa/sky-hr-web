@@ -46,10 +46,11 @@
  *    - TODO: Comparación con benchmarks de la industria
  */
 
-import { useMemo, useState } from "react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link, createFileRoute, redirect } from "@tanstack/react-router";
 import { isAuthenticated } from "@/server/auth.server";
 import { getOrganization, getUserOrganizations } from "@/server/organization.server";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -83,6 +84,7 @@ import {
   startOfMonth,
 } from "@/lib/month-utils";
 import { MonthPaginationControls } from "@/components/month-pagination-controls";
+import { useOrganizationStore } from "@/store/organization-store";
 
 export const Route = createFileRoute("/")({
   component: App,
@@ -120,6 +122,8 @@ interface AttendanceEvent {
   id: string;
   user_id: string;
   geofence_id?: string;
+  geofenceId?: string;
+  location_id?: string;
   status: "on_time" | "late" | "early" | "absent" | "out_of_bounds";
   check_in?: string;
   check_out?: string;
@@ -138,6 +142,14 @@ interface AttendanceEvent {
   created_at: string;
   updated_at?: string;
   deleted_at?: string;
+  geofence?: {
+    id: string;
+    name?: string;
+  };
+  location?: {
+    id: string;
+    name?: string;
+  };
 }
 
 interface LocationStats {
@@ -169,6 +181,27 @@ function getAttendanceStatus(percentage: number): "excellent" | "acceptable" | "
   if (percentage >= 95) return "excellent";
   if (percentage >= 90) return "acceptable";
   return "critical";
+}
+
+function getEventGeofenceId(event: AttendanceEvent): string | null {
+  return (
+    event.geofence_id ||
+    event.geofenceId ||
+    event.location_id ||
+    event.geofence?.id ||
+    event.location?.id ||
+    null
+  );
+}
+
+function resolveGeofenceName(geofence: any, fallbackIndex = 0) {
+  return (
+    geofence?.name ||
+    geofence?.label ||
+    geofence?.location_name ||
+    geofence?.location?.name ||
+    `Ubicación ${fallbackIndex + 1}`
+  );
 }
 
 type AttendanceQueryFilters = {
@@ -316,17 +349,19 @@ function App() {
     },
   });
 
+  const setOrganizationStore = useOrganizationStore((state) => state.setOrganization);
+
+  useEffect(() => {
+    setOrganizationStore(organization ?? null);
+  }, [organization, setOrganizationStore]);
+
   // Obtener geofences (sucursales/ubicaciones)
   const { data: geofences } = useQuery({
     queryKey: ["geofences", organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
       const response = await API.getGeofencesByOrganization(organization.id);
-      // Verificar si la respuesta es un array
-      if (Array.isArray(response)) {
-        return response;
-      }
-      return [];
+      return extractListData(response);
     },
     enabled: !!organization?.id,
   });
@@ -400,13 +435,26 @@ function App() {
   // Asegurar que siempre trabajamos con arrays
   const currentEvents = Array.isArray(currentMonthEvents) ? currentMonthEvents : [];
   const previousEvents = Array.isArray(previousMonthEvents) ? previousMonthEvents : [];
-  const flaggedEventsList = Array.isArray(flaggedReport?.flagged_events)
+  const flaggedEventsList: AttendanceEvent[] = Array.isArray(flaggedReport?.flagged_events)
     ? flaggedReport.flagged_events
     : [];
-  const flaggedEventsForMonth = flaggedEventsList.filter((event: AttendanceEvent) =>
+  const flaggedEventsForMonth: AttendanceEvent[] = flaggedEventsList.filter((event: AttendanceEvent) =>
     isWithinRange(event.check_in, startOfMonth(selectedMonth), endOfMonth(selectedMonth)),
   );
   const flaggedCount = flaggedEventsForMonth.length;
+  const flaggedStats = flaggedEventsForMonth.reduce<Record<string, number>>(
+    (acc: Record<string, number>, event: AttendanceEvent) => {
+      const key = event.status || "other";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+  const flaggedStatusMeta = [
+    { key: "late", label: "Tardanzas", accent: "text-orange-600", bar: "bg-orange-200" },
+    { key: "absent", label: "Ausencias", accent: "text-red-600", bar: "bg-red-200" },
+    { key: "out_of_bounds", label: "Fuera de zona", accent: "text-yellow-600", bar: "bg-yellow-200" },
+  ];
 
   // Asistencia global
   const globalAttendance = calculateAttendancePercentage(currentEvents);
@@ -435,15 +483,38 @@ function App() {
   const outsideGeofence = currentEvents.filter((e: AttendanceEvent) => !e.is_within_geofence).length;
 
   // Calcular estadísticas por ubicación (geofence)
-  const safeGeofences = Array.isArray(geofences) ? geofences : [];
-  const locationStats: LocationStats[] = safeGeofences.map((geofence: any) => {
-    const locationEvents = currentEvents.filter((e: AttendanceEvent) => e.geofence_id === geofence.id);
+  const geofenceList = useMemo(() => {
+    const list = Array.isArray(geofences) ? geofences : [];
+    if (list.length > 0) {
+      return list;
+    }
+
+    const derived = new Map<string, any>();
+    currentEvents.forEach((event: AttendanceEvent) => {
+      const geofenceId = getEventGeofenceId(event);
+      if (!geofenceId || derived.has(geofenceId)) {
+        return;
+      }
+      const derivedName =
+        event.geofence?.name ||
+        event.location?.name ||
+        `Ubicación ${derived.size + 1}`;
+      derived.set(geofenceId, { id: geofenceId, name: derivedName });
+    });
+
+    return Array.from(derived.values());
+  }, [geofences, currentEvents]);
+
+  const locationStats: LocationStats[] = geofenceList.map((geofence: any, index) => {
+    const locationEvents = currentEvents.filter(
+      (e: AttendanceEvent) => getEventGeofenceId(e) === geofence.id,
+    );
     const uniqueUsers = new Set(locationEvents.map((e: AttendanceEvent) => e.user_id));
     const attendance = calculateAttendancePercentage(locationEvents);
-    
+
     return {
       id: geofence.id,
-      name: geofence.name || "Sin nombre",
+      name: resolveGeofenceName(geofence, index),
       attendance: Math.round(attendance * 10) / 10,
       employees: uniqueUsers.size,
       status: getAttendanceStatus(attendance),
@@ -571,89 +642,42 @@ function App() {
         </Card>
       </div>
 
-      {/* Estadísticas Detalladas */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">A Tiempo</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{statusStats.onTime}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {currentEvents.length > 0 
-                ? ((statusStats.onTime / currentEvents.length) * 100).toFixed(1) 
-                : 0}% del total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tardanzas</CardTitle>
-            <Clock className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{statusStats.late}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {currentEvents.length > 0 
-                ? ((statusStats.late / currentEvents.length) * 100).toFixed(1) 
-                : 0}% del total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ausencias</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{statusStats.absent}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {currentEvents.length > 0 
-                ? ((statusStats.absent / currentEvents.length) * 100).toFixed(1) 
-                : 0}% del total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Fuera de Zona</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{statusStats.outOfBounds}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Registros fuera del geofence
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confianza Biométrica</CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{avgFaceConfidence.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Promedio de {eventsWithFace.length} verificaciones
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Eventos Marcados (Flagged) */}
       {flaggedCount > 0 && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Eventos Marcados</AlertTitle>
-          <AlertDescription>
-            Hay {flaggedCount} eventos que requieren atención (tardanzas, ausencias o fuera de zona).
-          </AlertDescription>
-        </Alert>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2 text-primary">
+              <AlertTriangle className="h-5 w-5" />
+              <div>
+                <CardTitle className="text-base">Resumen de eventos marcados</CardTitle>
+                <CardDescription>
+                  {selectedMonthLabel}: {flaggedCount} registro(s) con tardanza, ausencia o fuera de zona.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {flaggedStatusMeta.map(({ key, label, accent, bar }) => (
+                <div key={key} className="rounded-lg border bg-muted/30 p-3">
+                  <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <span>{label}</span>
+                    <span className={accent}>{flaggedStats[key] ?? 0}</span>
+                  </div>
+                  <div className={`mt-2 h-2 w-full rounded-full ${bar}`} />
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Usa este resumen para priorizar revisiones y mantener el registro mensual actualizado.
+              </p>
+              <Button size="sm" asChild>
+                <Link to="/attendance">Gestionar asistencia</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Tabs para diferentes secciones */}
@@ -668,12 +692,12 @@ function App() {
         {/* Tab de Asistencia */}
         <TabsContent value="attendance" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Ranking por Punto de Venta */}
+            {/* Resumen por ubicación */}
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle>Ranking de Sucursales</CardTitle>
+                <CardTitle>Resumen de Ubicaciones</CardTitle>
                 <CardDescription>
-                  Comparación de asistencia por punto de venta
+                  Detalle de asistencia y eventos por sucursal/geofence
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -683,42 +707,63 @@ function App() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {locationStats
-                      .sort((a, b) => b.attendance - a.attendance)
-                      .map((location, index) => {
-                        const config = getStatusConfig(location.status);
-                        const Icon = config.icon;
-                        return (
-                          <div
-                            key={location.id}
-                            className="flex items-center justify-between rounded-lg border p-4"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted font-bold">
-                                #{index + 1}
-                              </div>
-                              <div>
-                                <div className="font-medium">{location.name}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {location.employees} empleados • {location.totalEvents} eventos
-                                </div>
-                              </div>
+                    {locationStats.map((location, index) => {
+                      const config = getStatusConfig(location.status);
+                      const Icon = config.icon;
+                      return (
+                        <div
+                          key={location.id}
+                          className="rounded-lg border p-4 space-y-4"
+                        >
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Ubicación #{index + 1}</p>
+                              <p className="text-lg font-semibold">{location.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {location.employees} empleado(s) • {location.totalEvents} evento(s)
+                              </p>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <div className="text-2xl font-bold">
-                                  {location.attendance}%
-                                </div>
-                                <Badge variant={config.badge as any} className="mt-1">
-                                  <Icon className="mr-1 h-3 w-3" />
-                                  {config.text}
-                                </Badge>
-                              </div>
-                              <div className={`h-12 w-2 rounded-full ${config.color}`} />
+                            <div className="text-right">
+                              <p className="text-3xl font-bold">{location.attendance}%</p>
+                              <Badge variant={config.badge as any} className="mt-1 inline-flex items-center gap-1">
+                                <Icon className="h-3 w-3" />
+                                {config.text}
+                              </Badge>
                             </div>
                           </div>
-                        );
-                      })}
+
+                          <Progress
+                            value={location.attendance}
+                            className="[&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-600"
+                          />
+
+                          <div className="grid gap-3 md:grid-cols-4 text-sm">
+                            <div className="rounded-md bg-muted p-3">
+                              <p className="text-xs text-muted-foreground">A tiempo</p>
+                              <p className="text-base font-semibold text-green-600">
+                                {location.onTime}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-muted p-3">
+                              <p className="text-xs text-muted-foreground">Tarde</p>
+                              <p className="text-base font-semibold text-orange-600">
+                                {location.late}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-muted p-3">
+                              <p className="text-xs text-muted-foreground">Ausente</p>
+                              <p className="text-base font-semibold text-red-600">
+                                {location.absent}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-muted p-3">
+                              <p className="text-xs text-muted-foreground">Eventos totales</p>
+                              <p className="text-base font-semibold">{location.totalEvents}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

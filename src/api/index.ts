@@ -203,8 +203,28 @@ export class API {
     return await this.post("/user-geofence/check-access", data);
   }
 
-  public async getGeofencesByOrganization(organizationId: string) {
-    return await this.get(`/geofence/get-by-organization?id=${organizationId}`);
+  public async getGeofencesByOrganization(organizationId: string, params?: {
+    page?: number;
+    pageSize?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    const finalParams = {
+      id: organizationId,
+      page: params?.page,
+      pageSize: params?.pageSize,
+    };
+
+    Object.entries(finalParams).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      searchParams.append(key, String(value));
+    });
+
+    const queryString = searchParams.toString();
+    const url = `/geofence/get-by-organization${queryString ? `?${queryString}` : ""}`;
+    const response = await this.get(url);
+    return await this.handleResponse<PaginatedListResponse>(response);
   }
 
   // Attendance API methods
