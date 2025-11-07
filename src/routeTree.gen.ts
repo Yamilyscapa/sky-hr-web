@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as peopleEmployeesRouteImport } from './routes/(people)/employees'
+import { Route as organizationSettingsRouteImport } from './routes/(organization)/settings'
 import { Route as organizationGettingStartedRouteImport } from './routes/(organization)/getting-started'
 import { Route as organizationCreateOrganizationRouteImport } from './routes/(organization)/create-organization'
 import { Route as organizationAcceptInvitationRouteImport } from './routes/(organization)/accept-invitation'
@@ -28,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const peopleEmployeesRoute = peopleEmployeesRouteImport.update({
   id: '/(people)/employees',
   path: '/employees',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const organizationSettingsRoute = organizationSettingsRouteImport.update({
+  id: '/(organization)/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const organizationGettingStartedRoute =
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
   '/getting-started': typeof organizationGettingStartedRoute
+  '/settings': typeof organizationSettingsRoute
   '/employees': typeof peopleEmployeesRoute
 }
 export interface FileRoutesByTo {
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
   '/getting-started': typeof organizationGettingStartedRoute
+  '/settings': typeof organizationSettingsRoute
   '/employees': typeof peopleEmployeesRoute
 }
 export interface FileRoutesById {
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/(organization)/accept-invitation': typeof organizationAcceptInvitationRoute
   '/(organization)/create-organization': typeof organizationCreateOrganizationRoute
   '/(organization)/getting-started': typeof organizationGettingStartedRoute
+  '/(organization)/settings': typeof organizationSettingsRoute
   '/(people)/employees': typeof peopleEmployeesRoute
 }
 export interface FileRouteTypes {
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/create-organization'
     | '/getting-started'
+    | '/settings'
     | '/employees'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/create-organization'
     | '/getting-started'
+    | '/settings'
     | '/employees'
   id:
     | '__root__'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
     | '/(organization)/accept-invitation'
     | '/(organization)/create-organization'
     | '/(organization)/getting-started'
+    | '/(organization)/settings'
     | '/(people)/employees'
   fileRoutesById: FileRoutesById
 }
@@ -160,6 +172,7 @@ export interface RootRouteChildren {
   organizationAcceptInvitationRoute: typeof organizationAcceptInvitationRoute
   organizationCreateOrganizationRoute: typeof organizationCreateOrganizationRoute
   organizationGettingStartedRoute: typeof organizationGettingStartedRoute
+  organizationSettingsRoute: typeof organizationSettingsRoute
   peopleEmployeesRoute: typeof peopleEmployeesRoute
 }
 
@@ -177,6 +190,13 @@ declare module '@tanstack/react-router' {
       path: '/employees'
       fullPath: '/employees'
       preLoaderRoute: typeof peopleEmployeesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(organization)/settings': {
+      id: '/(organization)/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof organizationSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(organization)/getting-started': {
@@ -248,6 +268,7 @@ const rootRouteChildren: RootRouteChildren = {
   organizationAcceptInvitationRoute: organizationAcceptInvitationRoute,
   organizationCreateOrganizationRoute: organizationCreateOrganizationRoute,
   organizationGettingStartedRoute: organizationGettingStartedRoute,
+  organizationSettingsRoute: organizationSettingsRoute,
   peopleEmployeesRoute: peopleEmployeesRoute,
 }
 export const routeTree = rootRouteImport

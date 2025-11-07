@@ -1,3 +1,40 @@
+export type PaginationMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PaginatedListResponse<T = any> = {
+  message?: string;
+  data?: T[] | { events?: T[] };
+  pagination?: PaginationMeta;
+  [key: string]: any;
+};
+
+export function extractListData<T = any>(
+  response?: PaginatedListResponse<T> | any,
+): T[] {
+  if (!response) {
+    return [];
+  }
+
+  if (Array.isArray(response)) {
+    return response as T[];
+  }
+
+  const data = response.data;
+  if (Array.isArray(data)) {
+    return data as T[];
+  }
+
+  if (data && Array.isArray((data as { events?: T[] }).events)) {
+    return (data as { events?: T[] }).events || [];
+  }
+
+  return [];
+}
+
 export class API {
   private baseUrl: string;
 
@@ -176,11 +213,30 @@ export class API {
     start_date?: string;
     end_date?: string;
     status?: string;
+    page?: number;
+    pageSize?: number;
   }) {
-    const queryParams = params ? new URLSearchParams(params as any).toString() : "";
-    const url = `/attendance/events${queryParams ? `?${queryParams}` : ""}`;
+    const searchParams = new URLSearchParams();
+    const finalParams = {
+      page: params?.page ?? 1,
+      pageSize: params?.pageSize ?? 20,
+      user_id: params?.user_id,
+      start_date: params?.start_date,
+      end_date: params?.end_date,
+      status: params?.status,
+    };
+
+    Object.entries(finalParams).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      searchParams.append(key, String(value));
+    });
+
+    const queryString = searchParams.toString();
+    const url = `/attendance/events${queryString ? `?${queryString}` : ""}`;
     const response = await this.get(url);
-    return await this.handleResponse(response);
+    return await this.handleResponse<PaginatedListResponse>(response);
   }
 
   public async getAttendanceReport() {

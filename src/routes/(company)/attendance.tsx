@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useOrganizationStore } from "@/store/organization-store";
 import { Separator } from "@/components/ui/separator";
 import { DataTableCard } from "@/components/ui/data-table-card";
@@ -40,8 +40,18 @@ import {
   Mail,
   // Plus, // TODO: Uncomment when create-event endpoint is ready
 } from "lucide-react";
-import api from "@/api";
+import api, { PaginationMeta, extractListData } from "@/api";
 import { authClient } from "@/lib/auth-client";
+import {
+  buildMonthOptions,
+  endOfMonth,
+  formatMonthLabel,
+  formatMonthValue,
+  getMonthRangeStrings,
+  isWithinRange,
+  startOfMonth,
+} from "@/lib/month-utils";
+import { MonthPaginationControls } from "@/components/month-pagination-controls";
 
 export const Route = createFileRoute("/(company)/attendance")({
   component: RouteComponent,
@@ -80,6 +90,7 @@ type UserInfo = {
   email: string;
 };
 
+const PAGE_SIZE = 20;
 function StatusBadge({ status }: { status: AttendanceStatus }) {
   const statusConfig = {
     on_time: {
@@ -727,6 +738,9 @@ function RouteComponent() {
   const [markAbsencesDialogOpen, setMarkAbsencesDialogOpen] = useState(false);
   const [flaggedCount, setFlaggedCount] = useState(0);
   const [usersMap, setUsersMap] = useState<Map<string, UserInfo>>(new Map());
+  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const { organization } = useOrganizationStore();
 
   const handleViewDetails = (event: AttendanceEvent) => {
@@ -740,6 +754,14 @@ function RouteComponent() {
   };
 
   const columns = createColumns(handleViewDetails, handleUpdateStatus, usersMap);
+  const selectedMonthValue = formatMonthValue(selectedMonth);
+  const monthOptions = useMemo(
+    () => buildMonthOptions(selectedMonth),
+    [selectedMonth],
+  );
+  const currentMonthValue = formatMonthValue(startOfMonth(new Date()));
+  const isNextMonthDisabled = selectedMonthValue >= currentMonthValue;
+  const selectedMonthLabel = formatMonthLabel(selectedMonth);
 
   const table = useReactTable({
     data: attendanceEvents,
@@ -773,7 +795,7 @@ function RouteComponent() {
     }
   }
 
-  async function fetchAttendanceData() {
+  async function fetchAttendanceData(page = 1, monthDate = selectedMonth) {
     if (!organization?.id) {
       return;
     }
@@ -781,10 +803,16 @@ function RouteComponent() {
     setIsLoading(true);
 
     try {
+      const { startDate, endDate } = getMonthRangeStrings(monthDate);
       // Fetch both report (flagged events) and all events in parallel
       const [reportResult, eventsResult] = await Promise.all([
         api.getAttendanceReport(),
-        api.getAttendanceEvents(),
+        api.getAttendanceEvents({
+          page,
+          pageSize: PAGE_SIZE,
+          start_date: startDate,
+          end_date: endDate,
+        }),
       ]);
 
       console.log("Attendance report result:", reportResult);
@@ -792,28 +820,55 @@ function RouteComponent() {
       
       // Process flagged events from report
       if (reportResult?.data) {
-        const flaggedCount = reportResult.data.flagged_count || 0;
-        setFlaggedCount(flaggedCount);
+        const flaggedEvents = Array.isArray(reportResult.data.flagged_events)
+          ? reportResult.data.flagged_events
+          : [];
+        const start = startOfMonth(monthDate);
+        const end = endOfMonth(monthDate);
+        const filteredFlagged = flaggedEvents.filter((event: AttendanceEvent) =>
+          isWithinRange(event.check_in, start, end),
+        );
+        setFlaggedCount(filteredFlagged.length);
       }
 
       // Process all events for the table
-      if (eventsResult?.data) {
-        const events = eventsResult.data.events || [];
-        setAttendanceEvents(events);
-      }
+      const events = extractListData<AttendanceEvent>(eventsResult);
+      setAttendanceEvents(events);
+
+      const paginationMeta = eventsResult?.pagination ?? null;
+      setPagination(paginationMeta);
+      setCurrentPage(paginationMeta?.page ?? page);
     } catch (error) {
       console.error("Error fetching attendance data:", error);
     } finally {
       setIsLoading(false);
     }
+
   }
+
+  const handlePageChange = (nextPage: number) => {
+    if (!pagination) {
+      return;
+    }
+    const totalPages = pagination.totalPages ?? 1;
+    if (nextPage < 1 || nextPage > totalPages || nextPage === currentPage) {
+      return;
+    }
+    fetchAttendanceData(nextPage, selectedMonth);
+  };
 
   useEffect(() => {
     if (organization?.id) {
       fetchOrganizationMembers();
-      fetchAttendanceData();
     }
   }, [organization?.id]);
+
+  useEffect(() => {
+    if (organization?.id) {
+      setCurrentPage(1);
+      fetchAttendanceData(1, selectedMonth);
+    }
+  }, [organization?.id, selectedMonth]);
 
   function handleBulkAction() {
     const selectedRows = table.getSelectedRowModel().rows;
@@ -824,36 +879,77 @@ function RouteComponent() {
   }
 
   const handleUpdateComplete = () => {
-    fetchAttendanceData();
+    fetchAttendanceData(currentPage, selectedMonth);
+  };
+
+  const handlePreviousMonth = () => {
+    setSelectedMonth((prev) => {
+      const prevMonth = startOfMonth(prev);
+      prevMonth.setMonth(prevMonth.getMonth() - 1);
+      return startOfMonth(prevMonth);
+    });
+  };
+
+  const handleNextMonth = () => {
+    if (isNextMonthDisabled) {
+      return;
+    }
+    setSelectedMonth((prev) => {
+      const nextMonth = startOfMonth(prev);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      return startOfMonth(nextMonth);
+    });
+  };
+
+  const handleSelectMonth = (value: string) => {
+    const [year, month] = value.split("-").map(Number);
+    if (!year || !month) return;
+    const newDate = startOfMonth(new Date(year, month - 1, 1));
+    setSelectedMonth(newDate);
   };
 
   return (
     <div className="container mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Panel de asistencia</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchAttendanceData}
-                disabled={isLoading}
-              >
-                <RefreshCw
-                  className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
-                />
-                Actualizar
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setMarkAbsencesDialogOpen(true)}
-              >
-                <UserX className="h-4 w-4 mr-2" />
-                Marcar ausencias
-              </Button>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <CardTitle>Panel de asistencia</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Mostrando datos de {selectedMonthLabel}
+              </p>
             </div>
-          </CardTitle>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+              <MonthPaginationControls
+                selectedValue={selectedMonthValue}
+                options={monthOptions}
+                onPrevious={handlePreviousMonth}
+                onNext={handleNextMonth}
+                onSelect={handleSelectMonth}
+                disableNext={isNextMonthDisabled}
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchAttendanceData(currentPage, selectedMonth)}
+                  disabled={isLoading}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+                  />
+                  Actualizar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setMarkAbsencesDialogOpen(true)}
+                >
+                  <UserX className="h-4 w-4 mr-2" />
+                  Marcar ausencias
+                </Button>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -907,6 +1003,48 @@ function RouteComponent() {
         onBulkAction={handleBulkAction}
       />
 
+      {pagination && (
+        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando{" "}
+            {Math.min(
+              (pagination.page - 1) * pagination.pageSize + 1,
+              pagination.total,
+            )}
+            {" "}
+            -
+            {" "}
+            {Math.min(pagination.page * pagination.pageSize, pagination.total)}
+            {" "}
+            de {pagination.total} registros
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page <= 1 || isLoading}
+              onClick={() => handlePageChange(pagination.page - 1)}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {pagination.page} de {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={
+                pagination.page >= (pagination.totalPages ?? pagination.page) ||
+                isLoading
+              }
+              onClick={() => handlePageChange(pagination.page + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
+
       <MarkAbsencesDialog
         open={markAbsencesDialogOpen}
         onOpenChange={setMarkAbsencesDialogOpen}
@@ -932,4 +1070,3 @@ function RouteComponent() {
     </div>
   );
 }
-
