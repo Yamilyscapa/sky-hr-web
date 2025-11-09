@@ -575,10 +575,18 @@ function App() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>¡Alertas de Asistencia!</AlertTitle>
           <AlertDescription>
-            {criticalLocations.length} {criticalLocations.length === 1 ? "sucursal tiene" : "sucursales tienen"} una asistencia por debajo del 90%:{" "}
-            <span className="font-semibold">
-              {criticalLocations.map((loc) => loc.name).join(", ")}
-            </span>
+            <div className="space-y-2">
+              <p>
+                {criticalLocations.length} {criticalLocations.length === 1 ? "sucursal tiene" : "sucursales tienen"} una asistencia por debajo del 90%:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {criticalLocations.map((loc) => (
+                  <Badge key={loc.id} variant="destructive">
+                    {loc.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
           </AlertDescription>
         </Alert>
       )}
