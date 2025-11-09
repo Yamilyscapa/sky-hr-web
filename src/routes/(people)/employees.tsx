@@ -1,6 +1,12 @@
 import { isAuthenticated } from "@/server/auth.server";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -9,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { DataTableCard } from "@/components/ui/data-table-card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +27,17 @@ import {
 import { ColumnDef } from "@tanstack/react-table";
 import { useReactTable } from "@tanstack/react-table";
 import { getCoreRowModel, getSortedRowModel } from "@tanstack/react-table";
-import { ArrowUpDown, Edit, Trash2, Eye, Clock, MapPin, Copy } from "lucide-react";
+import {
+  ArrowUpDown,
+  Edit,
+  Trash2,
+  Eye,
+  Clock,
+  MapPin,
+  Copy,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 import API, { extractListData } from "@/api";
@@ -61,6 +78,32 @@ type Employee = {
     color: string;
   };
   geofences?: Geofence[];
+  role?: string;
+};
+
+type PendingInvitation = {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  inviterId?: string;
+  expiresAt?: string;
+  createdAt?: string;
+};
+
+const formatShortDate = (value?: string | Date) => {
+  if (!value) {
+    return "Sin fecha";
+  }
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) {
+    return "Sin fecha";
+  }
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 };
 
 // Shift cell component with assignment dialog
@@ -544,23 +587,134 @@ function LocationCell({
   );
 }
 
+function PendingInvitationsPanel({
+  invitations,
+  loading,
+  error,
+  onCancelInvitation,
+  cancellingInvitationId,
+}: {
+  invitations: PendingInvitation[];
+  loading: boolean;
+  error: string | null;
+  onCancelInvitation: (invitationId: string, email: string) => Promise<void>;
+  cancellingInvitationId: string | null;
+}) {
+  const hasInvites = invitations.length > 0;
+
+  const handleCopyLink = async (invitationId: string) => {
+    const url = `${window.location.origin}/accept-invitation?token=${invitationId}`;
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url);
+        alert("Enlace de invitación copiado al portapapeles");
+        return;
+      } catch (error) {
+        console.error("Error copiando enlace:", error);
+      }
+    }
+    window.prompt("Copia el enlace manualmente:", url);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle>Invitaciones pendientes</CardTitle>
+          <CardDescription>
+            Mantén separadas las invitaciones activas para controlar envíos y cancelaciones rápidamente.
+          </CardDescription>
+        </div>
+        {hasInvites && (
+          <Badge variant="secondary" className="capitalize">
+            {invitations.length} pendientes
+          </Badge>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Cargando invitaciones…</p>
+        ) : error ? (
+          <Alert variant="destructive">
+            <AlertTitle>No se pudieron cargar las invitaciones</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : !hasInvites ? (
+          <p className="text-sm text-muted-foreground">No hay invitaciones pendientes en este momento.</p>
+        ) : (
+          <div className="space-y-3">
+            {invitations.map((invitation) => (
+              <div
+                key={invitation.id}
+                className="flex flex-col gap-3 rounded-lg border border-border bg-muted p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="text-sm font-medium">{invitation.email}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Invitado {formatShortDate(invitation.createdAt)}</span>
+                    <span>Expira {formatShortDate(invitation.expiresAt)}</span>
+                    <Badge variant="outline" className="capitalize">
+                      {invitation.role}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleCopyLink(invitation.id)}
+                    className="font-normal gap-1"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copiar enlace
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void onCancelInvitation(invitation.id, invitation.email)}
+                    disabled={cancellingInvitationId === invitation.id}
+                  >
+                    {cancellingInvitationId === invitation.id ? "Cancelando..." : "Cancelar"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // Actions cell component with dropdown menu
 function ActionsCell({
   employee,
   onViewDetails,
   onManageEmployee,
   onDeleteEmployee,
+  onPromoteEmployee,
+  onDemoteEmployee,
+  promotingMemberId,
+  demotingMemberId,
   isDeleting,
 }: {
   employee: Employee;
   onViewDetails: (employee: Employee) => void;
   onManageEmployee: (employee: Employee) => void;
   onDeleteEmployee: (employee: Employee) => void;
+  onPromoteEmployee: (employee: Employee) => void;
+  onDemoteEmployee: (employee: Employee) => void;
+  promotingMemberId: string | null;
+  demotingMemberId: string | null;
   isDeleting: boolean;
 }) {
-  const isPending = employee.status === "pending";
-  const deleteLabel = isPending ? "Cancelar invitación" : "Eliminar";
-  const deleteDisabled = isPending ? !employee.invitationId || isDeleting : isDeleting;
+  const isOwner = employee.role === "owner";
+  const isAdmin = employee.role === "admin";
+  const isPromoting = employee.id ? promotingMemberId === employee.id : false;
+  const isDemoting = employee.id ? demotingMemberId === employee.id : false;
+  const promoteDisabled = isPromoting || isOwner;
+  const demoteDisabled = isDemoting || !isAdmin;
+  const deleteDisabled = isOwner || isDeleting;
 
   const items: ActionMenuItem[] = [
     {
@@ -572,16 +726,35 @@ function ActionsCell({
       label: "Editar",
       icon: Edit,
       action: () => onManageEmployee(employee),
-      disabled: isPending,
-    },
-    {
-      label: deleteLabel,
-      icon: Trash2,
-      action: () => onDeleteEmployee(employee),
-      destructive: true,
-      disabled: deleteDisabled,
+      disabled: isOwner,
     },
   ];
+
+  if (!isOwner && !isAdmin) {
+    items.push({
+      label: isPromoting ? "Promoviendo..." : "Promover a admin",
+      icon: TrendingUp,
+      action: () => onPromoteEmployee(employee),
+      disabled: promoteDisabled,
+    });
+  }
+
+  if (isAdmin) {
+    items.push({
+      label: isDemoting ? "Degradando..." : "Degradar a miembro",
+      icon: TrendingDown,
+      action: () => onDemoteEmployee(employee),
+      disabled: demoteDisabled,
+    });
+  }
+
+  items.push({
+    label: "Eliminar",
+    icon: Trash2,
+    action: () => onDeleteEmployee(employee),
+    destructive: true,
+    disabled: deleteDisabled,
+  });
 
   return <ActionMenu items={items} />;
 }
@@ -595,8 +768,11 @@ type ColumnBuilderParams = {
   onViewEmployee: (employee: Employee) => void;
   onManageEmployee: (employee: Employee) => void;
   onDeleteEmployee: (employee: Employee) => void;
+  onPromoteEmployee: (employee: Employee) => void;
+  onDemoteEmployee: (employee: Employee) => void;
   deletingEmployeeId?: string | null;
-  cancellingInvitationId?: string | null;
+  promotingMemberId?: string | null;
+  demotingMemberId?: string | null;
 };
 
 // Define columns as a function so we can pass shifts, geofences, and handlers
@@ -609,8 +785,11 @@ const createColumns = ({
   onViewEmployee,
   onManageEmployee,
   onDeleteEmployee,
+  onPromoteEmployee,
+  onDemoteEmployee,
   deletingEmployeeId,
-  cancellingInvitationId,
+  promotingMemberId,
+  demotingMemberId,
 }: ColumnBuilderParams): ColumnDef<Employee>[] => [
   {
     id: "select",
@@ -649,15 +828,9 @@ const createColumns = ({
     cell: ({ row }) => {
       const email = row.original.email;
       const isCurrentUser = row.original.isCurrentUser;
-      const isPending = row.original.status === "pending";
       return (
         <div className="flex items-center gap-2">
           <span>{email}</span>
-          {isPending && (
-            <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-              Pendiente
-            </span>
-          )}
           {isCurrentUser && (
             <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
               YO
@@ -674,6 +847,20 @@ const createColumns = ({
     cell: ({ row }) => {
       const name = row.original.name;
       return <p>{name}</p>;
+    },
+    enableSorting: true,
+  },
+  {
+    header: "Rol",
+    accessorKey: "role",
+    cell: ({ row }) => {
+      const role = row.original.role ?? "miembro";
+      const variant = role === "admin" || role === "owner" ? "secondary" : "outline";
+      return (
+        <Badge variant={variant} className="capitalize">
+          {role}
+        </Badge>
+      );
     },
     enableSorting: true,
   },
@@ -709,9 +896,7 @@ const createColumns = ({
     header: "",
     cell: ({ row }) => {
       const employee = row.original;
-      const isDeleting =
-        (!!employee.invitationId && employee.invitationId === cancellingInvitationId) ||
-        (!!employee.id && employee.id === deletingEmployeeId);
+      const isDeleting = !!employee.id && employee.id === deletingEmployeeId;
 
       return (
         <ActionsCell
@@ -719,6 +904,10 @@ const createColumns = ({
           onViewDetails={onViewEmployee}
           onManageEmployee={onManageEmployee}
           onDeleteEmployee={onDeleteEmployee}
+          onPromoteEmployee={onPromoteEmployee}
+          onDemoteEmployee={onDemoteEmployee}
+          promotingMemberId={promotingMemberId ?? null}
+          demotingMemberId={demotingMemberId ?? null}
           isDeleting={Boolean(isDeleting)}
         />
       );
@@ -748,6 +937,11 @@ function RouteComponent() {
   const [deletingEmployeeId, setDeletingEmployeeId] = useState<string | null>(null);
   const [cancellingInvitationId, setCancellingInvitationId] = useState<string | null>(null);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+  const [invitationsError, setInvitationsError] = useState<string | null>(null);
+  const [promotingMemberId, setPromotingMemberId] = useState<string | null>(null);
+  const [demotingMemberId, setDemotingMemberId] = useState<string | null>(null);
   const { user } = useUserStore();
   const { organization } = useOrganizationStore();
 
@@ -851,33 +1045,13 @@ function RouteComponent() {
   };
 
   const handleDeleteEmployee = async (employee: Employee) => {
-    if (employee.status === "pending") {
-      if (!employee.invitationId) {
-        alert("No se encontró la invitación para cancelar.");
-        return;
-      }
-      if (!window.confirm(`¿Deseas cancelar la invitación para ${employee.email}?`)) {
-        return;
-      }
-      setCancellingInvitationId(employee.invitationId);
-      try {
-        await authClient.organization.cancelInvitation({
-          invitationId: employee.invitationId,
-        });
-        alert("Invitación cancelada exitosamente");
-        await handleUsersList();
-      } catch (error) {
-        console.error("Error cancelando invitación:", error);
-        alert("Error al cancelar la invitación. Por favor, intenta de nuevo.");
-      } finally {
-        setCancellingInvitationId(null);
-      }
+    if (!employee.id && !employee.email) {
+      alert("No se encontró el identificador del empleado.");
       return;
     }
 
-    const identifier = employee.id || employee.email;
-    if (!identifier) {
-      alert("No se encontró el identificador del empleado.");
+    if (employee.role === "owner") {
+      alert("No puedes eliminar al propietario de la organización.");
       return;
     }
 
@@ -885,6 +1059,7 @@ function RouteComponent() {
       return;
     }
 
+    const identifier = employee.id || employee.email;
     setDeletingEmployeeId(employee.id ?? null);
     try {
       await authClient.organization.removeMember({
@@ -901,6 +1076,47 @@ function RouteComponent() {
     }
   };
 
+  const handleUpdateMemberRole = async (employee: Employee, targetRole: "admin" | "member") => {
+    if (!employee.id) {
+      alert("ID de empleado no encontrado.");
+      return;
+    }
+    if (employee.role === "owner") {
+      alert("No puedes cambiar el rol del propietario.");
+      return;
+    }
+    if (employee.role === targetRole) {
+      return;
+    }
+
+    const setLoading = targetRole === "admin" ? setPromotingMemberId : setDemotingMemberId;
+    setLoading(employee.id);
+    try {
+      await authClient.organization.updateMemberRole({
+        memberId: employee.id,
+        role: targetRole,
+        organizationId: organization?.id,
+      });
+      alert(
+        targetRole === "admin"
+          ? "Empleado promovido a administrador"
+          : "Empleado degradado a miembro",
+      );
+      await handleUsersList();
+    } catch (error) {
+      console.error("Error actualizando rol:", error);
+      alert("No se pudo actualizar el rol. Intenta de nuevo.");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handlePromoteEmployee = (employee: Employee) =>
+    handleUpdateMemberRole(employee, "admin");
+
+  const handleDemoteEmployee = (employee: Employee) =>
+    handleUpdateMemberRole(employee, "member");
+
   const columns = createColumns({
     shifts,
     geofences,
@@ -910,8 +1126,11 @@ function RouteComponent() {
     onViewEmployee: handleViewEmployeeDetails,
     onManageEmployee: handleManageEmployee,
     onDeleteEmployee: handleDeleteEmployee,
+    onPromoteEmployee: handlePromoteEmployee,
+    onDemoteEmployee: handleDemoteEmployee,
     deletingEmployeeId,
-    cancellingInvitationId,
+    promotingMemberId,
+    demotingMemberId,
   });
 
   const table = useReactTable({
@@ -1051,14 +1270,6 @@ function RouteComponent() {
     }
   }
 
-  function handleBulkAction() {
-    const selectedRows = table.getSelectedRowModel().rows;
-    console.log(
-      "Bulk action on selected rows:",
-      selectedRows.map((row) => row.original),
-    );
-  }
-
   async function fetchShifts() {
     try {
       const response = await API.getShifts();
@@ -1096,131 +1307,164 @@ function RouteComponent() {
     }
   }
 
-  async function handleUsersList() {
-    const currentUserEmail = user?.email;
-
-    // Fetch pending invitations
+  const refreshInvitations = async () => {
+    setInvitationsLoading(true);
+    setInvitationsError(null);
+    try {
     const invitationsResult = await authClient.organization.listInvitations();
-    const invitationsList = (
-      Array.isArray(invitationsResult.data) ? invitationsResult.data : []
-    ) as any[];
-    const pendingInvitations: Employee[] = invitationsList
-      .filter((invitation: any) => invitation.status !== "accepted")
-      .map(
-        (invitation: any) => ({
-          invitationId: invitation.id,
+    const invitationsPayload = invitationsResult.data as any;
+    const invitationsList = Array.isArray(invitationsPayload)
+      ? invitationsPayload
+      : Array.isArray(invitationsPayload?.invitations)
+      ? invitationsPayload.invitations
+      : [];
+      const pendingList = invitationsList
+        .filter((invitation: any) => invitation.status === "pending")
+        .map((invitation: any) => ({
+          id: invitation.id,
           email: invitation.email ?? "",
-          name: "",
-          isCurrentUser: false,
-          status: "pending" as const,
+          role: invitation.role ?? "member",
+          status: invitation.status ?? "pending",
+          inviterId: invitation.inviterId ?? invitation.inviter_id,
+          expiresAt: invitation.expiresAt ?? invitation.expires_at,
+          createdAt: invitation.createdAt ?? invitation.created_at,
+        }));
+      setPendingInvitations(pendingList);
+    } catch (error) {
+      console.error("Error fetching invitaciones:", error);
+      setInvitationsError("No pudimos cargar las invitaciones. Inténtalo de nuevo.");
+      setPendingInvitations([]);
+    } finally {
+      setInvitationsLoading(false);
+    }
+  };
+
+  const refreshMembers = async () => {
+    const currentUserEmail = user?.email;
+    try {
+      const membersResult = await authClient.organization.listMembers();
+      const activeMembers: Employee[] =
+        membersResult.data?.members?.map((member) => ({
+          id: member.user?.id ?? "",
+          email: member.user?.email ?? "",
+          name: member.user?.name ?? "",
+          isCurrentUser: currentUserEmail
+            ? member.user?.email === currentUserEmail
+            : false,
+          status: "active",
+          role: member.role ?? "member",
+        })) ?? [];
+
+      const membersWithShiftsAndGeofences = await Promise.all(
+        activeMembers.map(async (member) => {
+          if (!member.id) return member;
+
+          let memberData = { ...member };
+
+          try {
+            const scheduleResponse = await API.getUserSchedule(member.id);
+            if (scheduleResponse.ok) {
+              const scheduleResult = await scheduleResponse.json();
+              let schedules = [];
+
+              if (Array.isArray(scheduleResult)) {
+                schedules = scheduleResult;
+              } else if (scheduleResult.data && Array.isArray(scheduleResult.data)) {
+                schedules = scheduleResult.data;
+              }
+
+              const now = new Date();
+              const activeSchedules = schedules.filter((schedule: any) => {
+                const effectiveFrom = new Date(schedule.effective_from);
+                const effectiveUntil = schedule.effective_until
+                  ? new Date(schedule.effective_until)
+                  : null;
+
+                return (
+                  effectiveFrom <= now &&
+                  (!effectiveUntil || effectiveUntil >= now)
+                );
+              });
+
+              const activeSchedule = activeSchedules.sort((a: any, b: any) => {
+                const dateA = new Date(a.created_at);
+                const dateB = new Date(b.created_at);
+                return dateB.getTime() - dateA.getTime();
+              })[0];
+
+              if (activeSchedule && activeSchedule.shift_id) {
+                const shift = shifts.find((s) => s.id === activeSchedule.shift_id);
+                if (shift) {
+                  memberData = {
+                    ...memberData,
+                    shift: {
+                      id: shift.id,
+                      name: shift.name,
+                      color: shift.color,
+                    },
+                  };
+                }
+              }
+            }
+
+            const geofencesResponse = await API.getUserGeofences(member.id);
+            if (geofencesResponse.ok) {
+              const geofencesResult = await geofencesResponse.json();
+              let userGeofences: Geofence[] = [];
+
+              if (
+                geofencesResult.data?.assignments &&
+                Array.isArray(geofencesResult.data.assignments)
+              ) {
+                userGeofences = geofencesResult.data.assignments
+                  .map((assignment: any) => assignment.geofence)
+                  .filter((g: any) => g);
+              } else if (Array.isArray(geofencesResult)) {
+                userGeofences = geofencesResult;
+              } else if (geofencesResult.data && Array.isArray(geofencesResult.data)) {
+                userGeofences = geofencesResult.data;
+              }
+
+              memberData = {
+                ...memberData,
+                geofences: userGeofences,
+              };
+            }
+          } catch (error) {
+            console.error(`Error fetching data for user ${member.id}:`, error);
+          }
+
+          return memberData;
         }),
       );
 
-    // Fetch active members
-    const membersResult = await authClient.organization.listMembers();
-    const activeMembers: Employee[] =
-      membersResult.data?.members?.map((member) => ({
-        id: member.user?.id ?? "",
-        email: member.user?.email ?? "",
-        name: member.user?.name ?? "",
-        isCurrentUser: currentUserEmail
-          ? member.user?.email === currentUserEmail
-          : false,
-        status: "active" as const,
-      })) ?? [];
+      setData(membersWithShiftsAndGeofences);
+    } catch (error) {
+      console.error("Error fetching miembros:", error);
+      setData([]);
+    }
+  };
 
-    // Fetch user schedules and geofences for active members
-    const membersWithShiftsAndGeofences = await Promise.all(
-      activeMembers.map(async (member) => {
-        if (!member.id) return member;
-
-        let memberData = { ...member };
-
-        try {
-          // Fetch user schedule
-          const scheduleResponse = await API.getUserSchedule(member.id);
-          if (scheduleResponse.ok) {
-            const scheduleResult = await scheduleResponse.json();
-            let schedules = [];
-            
-            if (Array.isArray(scheduleResult)) {
-              schedules = scheduleResult;
-            } else if (scheduleResult.data && Array.isArray(scheduleResult.data)) {
-              schedules = scheduleResult.data;
-            }
-
-            // Get the current active schedule
-            // When multiple schedules have the same effective_from, the most recently created one wins
-            const now = new Date();
-            const activeSchedules = schedules.filter((schedule: any) => {
-              const effectiveFrom = new Date(schedule.effective_from);
-              const effectiveUntil = schedule.effective_until
-                ? new Date(schedule.effective_until)
-                : null;
-
-              return (
-                effectiveFrom <= now &&
-                (!effectiveUntil || effectiveUntil >= now)
-              );
-            });
-
-            // Sort by created_at descending (most recent first)
-            const activeSchedule = activeSchedules.sort((a: any, b: any) => {
-              const dateA = new Date(a.created_at);
-              const dateB = new Date(b.created_at);
-              return dateB.getTime() - dateA.getTime();
-            })[0];
-
-            if (activeSchedule && activeSchedule.shift_id) {
-              // Find the shift details
-              const shift = shifts.find((s) => s.id === activeSchedule.shift_id);
-              if (shift) {
-                memberData = {
-                  ...memberData,
-                  shift: {
-                    id: shift.id,
-                    name: shift.name,
-                    color: shift.color,
-                  },
-                };
-              }
-            }
-          }
-
-          // Fetch user geofences
-          const geofencesResponse = await API.getUserGeofences(member.id);
-          if (geofencesResponse.ok) {
-            const geofencesResult = await geofencesResponse.json();
-            let userGeofences: Geofence[] = [];
-
-            // Handle various response formats
-            if (geofencesResult.data?.assignments && Array.isArray(geofencesResult.data.assignments)) {
-              userGeofences = geofencesResult.data.assignments
-                .map((assignment: any) => assignment.geofence)
-                .filter((g: any) => g); // Filter out null/undefined
-            } else if (Array.isArray(geofencesResult)) {
-              userGeofences = geofencesResult;
-            } else if (geofencesResult.data && Array.isArray(geofencesResult.data)) {
-              userGeofences = geofencesResult.data;
-            }
-
-            memberData = {
-              ...memberData,
-              geofences: userGeofences,
-            };
-          }
-        } catch (error) {
-          console.error(`Error fetching data for user ${member.id}:`, error);
-        }
-
-        return memberData;
-      })
-    );
-
-    // Combine with pending invitations first
-    const allEmployees = [...pendingInvitations, ...membersWithShiftsAndGeofences];
-    setData(allEmployees);
+  async function handleUsersList() {
+    await Promise.all([refreshMembers(), refreshInvitations()]);
   }
+
+  const handleCancelInvitation = async (invitationId: string, email: string) => {
+    if (!window.confirm(`¿Deseas cancelar la invitación para ${email}?`)) {
+      return;
+    }
+    setCancellingInvitationId(invitationId);
+    try {
+      await authClient.organization.cancelInvitation({ invitationId });
+      alert("Invitación cancelada exitosamente");
+      await refreshInvitations();
+    } catch (error) {
+      console.error("Error cancelando invitación:", error);
+      alert("Error al cancelar la invitación. Por favor, intenta de nuevo.");
+    } finally {
+      setCancellingInvitationId(null);
+    }
+  };
 
   useEffect(() => {
     if (user && organization?.id) {
@@ -1233,7 +1477,13 @@ function RouteComponent() {
     if (user && shifts.length > 0 && geofences.length >= 0) {
       handleUsersList();
     }
-  }, [user, shifts, geofences]);
+  }, [user, shifts, geofences, organization?.id]);
+
+  useEffect(() => {
+    if (user) {
+      refreshInvitations();
+    }
+  }, [user]);
 
   return (
     <div className="space-y-6 p-6 pb-12">
@@ -1255,6 +1505,14 @@ function RouteComponent() {
           </form>
         </CardContent>
       </Card>
+
+      <PendingInvitationsPanel
+        invitations={pendingInvitations}
+        loading={invitationsLoading}
+        error={invitationsError}
+        onCancelInvitation={handleCancelInvitation}
+        cancellingInvitationId={cancellingInvitationId}
+      />
 
       <Separator className="mt-8" />
       <DataTableCard
