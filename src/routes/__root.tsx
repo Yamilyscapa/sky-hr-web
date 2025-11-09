@@ -2,12 +2,15 @@ import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
+  useRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { TanStackDevtools } from "@tanstack/react-devtools";
-import { useRouter } from "@tanstack/react-router";
+import {
+  TanStackDevtools,
+  type TanStackDevtoolsReactPlugin,
+} from "@tanstack/react-devtools";
 
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
+import { createTanStackQueryDevtoolsPlugin } from "../integrations/tanstack-query/devtools";
 
 import appCss from "../styles.css?url";
 
@@ -16,7 +19,9 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useUserStore } from "@/store/user-store";
 import { useOrganizationStore } from "@/store/organization-store";
-import { useEffect } from "react";
+import type { User } from "@/store/user-store";
+import type { Organization } from "@/store/organization-store";
+import { useEffect, useMemo } from "react";
 import { useAuthData } from "@/hooks/use-auth-data";
 
 interface MyRouterContext {
@@ -50,6 +55,21 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const queryClient = router.options.context?.queryClient;
+  const devtoolsPlugins = useMemo<TanStackDevtoolsReactPlugin[]>(() => {
+    const plugins: TanStackDevtoolsReactPlugin[] = [
+      {
+        name: "Tanstack Router",
+        render: <TanStackRouterDevtoolsPanel />,
+      },
+    ];
+
+    if (queryClient) {
+      plugins.push(createTanStackQueryDevtoolsPlugin(queryClient));
+    }
+
+    return plugins;
+  }, [queryClient]);
   
   // Routes that don't need sidebar or auth data
   const routesWithoutSidebar = [
@@ -69,24 +89,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     router.state.location.pathname,
   );
 
-  // Fetch auth data using React Query with caching (Option 1)
-  // Skip fetching entirely on auth routes to improve performance
-  const { user, organization } = useAuthData({ enabled: !isAuthRoute });
-  
   // Sync with Zustand stores
   const { setUser } = useUserStore();
   const { setOrganization } = useOrganizationStore();
-
-  useEffect(() => {
-    if (!isAuthRoute) {
-      if (user) {
-        setUser(user);
-      }
-      if (organization) {
-        setOrganization(organization);
-      }
-    }
-  }, [user, organization, setUser, setOrganization, isAuthRoute]);
 
   return (
     <html lang="en">
@@ -94,6 +99,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        {!isAuthRoute && (
+          <AuthDataSynchronizer
+            setUser={setUser}
+            setOrganization={setOrganization}
+          />
+        )}
         {showSidebar ? (
           <SidebarProvider>
             <AppSidebar />
@@ -107,20 +118,37 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         ) : (
           <div className="flex-1">{children}</div>
         )}
-        <TanStackDevtools
-          config={{
-            position: "bottom-right",
-          }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-            TanStackQueryDevtools,
-          ]}
-        />
+        {!isAuthRoute && (
+          <TanStackDevtools
+            config={{
+              position: "bottom-right",
+            }}
+            plugins={devtoolsPlugins}
+          />
+        )}
         <Scripts />
       </body>
     </html>
   );
+}
+
+function AuthDataSynchronizer({
+  setUser,
+  setOrganization,
+}: {
+  setUser: (user: User | null) => void;
+  setOrganization: (organization: Organization | null) => void;
+}) {
+  const { user, organization } = useAuthData();
+
+  useEffect(() => {
+    if (user) {
+      setUser(user);
+    }
+    if (organization) {
+      setOrganization(organization);
+    }
+  }, [user, organization, setUser, setOrganization]);
+
+  return null;
 }
