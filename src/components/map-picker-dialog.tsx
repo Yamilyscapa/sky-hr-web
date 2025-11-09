@@ -24,7 +24,7 @@ export function MapPickerDialog({
   initialLocation,
   onConfirm,
   title = "Seleccionar ubicación",
-  description = "Haz clic en el mapa para seleccionar la ubicación de la sucursal y ajusta el radio del geocerca.",
+  description = "Haz clic en el mapa para seleccionar la ubicación de la sucursal y ajusta el radio del área de cobertura.",
 }: MapPickerDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<
@@ -47,18 +47,18 @@ export function MapPickerDialog({
       <DialogTrigger asChild>
         {trigger || <Button variant="outline">Seleccionar ubicación</Button>}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[calc(100vh-4rem)] flex flex-col">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="py-4">
+        <div className="py-4 overflow-y-auto flex-1 min-h-0">
           <MapPicker
             initialLocation={initialLocation}
             onLocationChange={handleLocationChange}
           />
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
