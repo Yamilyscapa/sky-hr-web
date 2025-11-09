@@ -10,31 +10,25 @@ import { useState, useEffect } from "react";
 import { useOrganizationStore } from "@/store/organization-store";
 import { Separator } from "@/components/ui/separator";
 import { DataTableCard } from "@/components/ui/data-table-card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { ColumnDef } from "@tanstack/react-table";
 import { useReactTable } from "@tanstack/react-table";
 import { getCoreRowModel, getSortedRowModel } from "@tanstack/react-table";
 import {
   ArrowUpDown,
-  MoreHorizontal,
-  Edit,
-  Trash2,
   Eye,
   MapPin,
   QrCode,
   Download,
+  Copy,
 } from "lucide-react";
 import API from "@/api";
 
@@ -58,20 +52,23 @@ type Location = {
   qr_code_url?: string;
 };
 
+function downloadQrCode(location: Location) {
+  if (!location.qr_code_url) {
+    alert("No hay un código QR disponible para esta sucursal.");
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = location.qr_code_url;
+  link.download = `${location.name || "ubicacion"}-qr.png`;
+  link.target = "_blank";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 // QR Code viewer component
 function QRCodeViewer({ location }: { location: Location }) {
-  const handleDownload = () => {
-    if (!location.qr_code_url) return;
-
-    const link = document.createElement("a");
-    link.href = location.qr_code_url;
-    link.download = `${location.name}-qr-code.png`;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   if (!location.qr_code_url) {
     return <span className="text-sm text-gray-400">No disponible</span>;
   }
@@ -96,7 +93,7 @@ function QRCodeViewer({ location }: { location: Location }) {
               className="w-64 h-64 object-contain"
             />
           </div>
-          <Button onClick={handleDownload} className="w-full gap-2">
+          <Button onClick={() => downloadQrCode(location)} className="w-full gap-2">
             <Download className="h-4 w-4" />
             Descargar QR
           </Button>
@@ -106,37 +103,52 @@ function QRCodeViewer({ location }: { location: Location }) {
   );
 }
 
-function ActionsCell({ location: _location }: { location: Location }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-md">
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-          <Eye className="h-4 w-4" />
-          <span>Ver detalles</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-          <MapPin className="h-4 w-4" />
-          <span>Ver en mapa</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-          <Edit className="h-4 w-4" />
-          <span>Editar</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600">
-          <Trash2 className="h-4 w-4" />
-          <span>Eliminar</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+function ActionsCell({
+  location,
+  onView,
+  onOpenMap,
+  onDownloadQr,
+}: {
+  location: Location;
+  onView: (location: Location) => void;
+  onOpenMap: (location: Location) => void;
+  onDownloadQr: (location: Location) => void;
+}) {
+  const hasCoordinates = Boolean(location.center_latitude && location.center_longitude);
+  const items: ActionMenuItem[] = [
+    {
+      label: "Ver detalles",
+      icon: Eye,
+      action: () => onView(location),
+    },
+    {
+      label: "Ver en mapa",
+      icon: MapPin,
+      action: () => onOpenMap(location),
+      disabled: !hasCoordinates,
+    },
+    {
+      label: "Descargar QR",
+      icon: Download,
+      action: () => onDownloadQr(location),
+      disabled: !location.qr_code_url,
+    },
+  ];
+
+  return <ActionMenu items={items} />;
 }
 
-const columns: ColumnDef<Location>[] = [
+type LocationColumnHandlers = {
+  onView: (location: Location) => void;
+  onOpenMap: (location: Location) => void;
+  onDownloadQr: (location: Location) => void;
+};
+
+const createColumns = ({
+  onView,
+  onOpenMap,
+  onDownloadQr,
+}: LocationColumnHandlers): ColumnDef<Location>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -193,7 +205,14 @@ const columns: ColumnDef<Location>[] = [
     id: "actions",
     header: "",
     cell: ({ row }) => {
-      return <ActionsCell location={row.original} />;
+      return (
+        <ActionsCell
+          location={row.original}
+          onView={onView}
+          onOpenMap={onOpenMap}
+          onDownloadQr={onDownloadQr}
+        />
+      );
     },
     enableSorting: false,
     enableHiding: false,
@@ -234,7 +253,33 @@ function RouteComponent() {
   const [name, setName] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [detailsLocation, setDetailsLocation] = useState<Location | null>(null);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const { organization } = useOrganizationStore();
+
+  const handleViewLocationDetails = (location: Location) => {
+    setDetailsLocation(location);
+  };
+
+  const handleOpenLocationMap = (location: Location) => {
+    if (!location.center_latitude || !location.center_longitude) {
+      alert("No hay coordenadas disponibles para esta ubicación.");
+      return;
+    }
+
+    const url = `https://www.google.com/maps?q=${location.center_latitude},${location.center_longitude}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownloadLocationQr = (location: Location) => {
+    downloadQrCode(location);
+  };
+
+  const columns = createColumns({
+    onView: handleViewLocationDetails,
+    onOpenMap: handleOpenLocationMap,
+    onDownloadQr: handleDownloadLocationQr,
+  });
 
   const table = useReactTable({
     data: locations,
@@ -244,6 +289,80 @@ function RouteComponent() {
     enableSorting: true,
     enableRowSelection: true,
   });
+
+  const getSelectedLocations = () => table.getSelectedRowModel().rows.map((row) => row.original);
+
+  const handleBulkDownloadQrs = () => {
+    const selected = getSelectedLocations();
+    if (selected.length === 0) {
+      alert("Selecciona al menos una sucursal.");
+      return;
+    }
+
+    const withQr = selected.filter((location) => location.qr_code_url);
+    if (withQr.length === 0) {
+      alert("Las sucursales seleccionadas no tienen códigos QR disponibles.");
+      return;
+    }
+
+    setIsBulkProcessing(true);
+    try {
+      withQr.forEach((location, index) => {
+        setTimeout(() => downloadQrCode(location), index * 150);
+      });
+    } finally {
+      setTimeout(() => setIsBulkProcessing(false), withQr.length * 150 + 300);
+    }
+  };
+
+  const handleBulkCopyCoordinates = async () => {
+    const selected = getSelectedLocations();
+    if (selected.length === 0) {
+      alert("Selecciona al menos una sucursal.");
+      return;
+    }
+
+    const coordinates = selected
+      .filter((location) => location.center_latitude && location.center_longitude)
+      .map(
+        (location) =>
+          `${location.name || "Ubicación"}: ${location.center_latitude}, ${location.center_longitude}`,
+      );
+
+    if (coordinates.length === 0) {
+      alert("No hay coordenadas disponibles para copiar.");
+      return;
+    }
+
+    const text = coordinates.join("\n");
+
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("Coordenadas copiadas al portapapeles");
+        return;
+      } catch (error) {
+        console.error("Error copiando coordenadas:", error);
+      }
+    }
+
+    window.prompt("Copia manualmente las coordenadas:", text);
+  };
+
+  const locationBulkActions: ActionMenuItem[] = [
+    {
+      label: "Descargar QRs",
+      icon: Download,
+      action: handleBulkDownloadQrs,
+      disabled: isBulkProcessing,
+    },
+    {
+      label: "Copiar coordenadas",
+      icon: Copy,
+      action: handleBulkCopyCoordinates,
+      disabled: isBulkProcessing,
+    },
+  ];
 
   const handleLocationConfirm = (location: LocationData) => {
     setLocationData(location);
@@ -330,14 +449,6 @@ function RouteComponent() {
     }
   };
 
-  function handleBulkAction() {
-    const selectedRows = table.getSelectedRowModel().rows;
-    console.log(
-      "Bulk action on selected rows:",
-      selectedRows.map((row) => row.original),
-    );
-  }
-
   return (
     <div className="space-y-6 p-6 pb-12">
       <Card>
@@ -392,8 +503,73 @@ function RouteComponent() {
         table={table}
         selectedCount={table.getSelectedRowModel().rows.length}
         bulkActionLabel="Acciones masivas"
-        onBulkAction={handleBulkAction}
+        bulkActions={locationBulkActions}
       />
+
+      {detailsLocation && (
+        <LocationDetailsDialog
+          location={detailsLocation}
+          open={Boolean(detailsLocation)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailsLocation(null);
+            }
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function LocationDetailsDialog({
+  location,
+  open,
+  onOpenChange,
+}: {
+  location: Location;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{location.name}</DialogTitle>
+          <DialogDescription>
+            Información de la sucursal seleccionada.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Tipo</p>
+            <p className="font-medium capitalize">{location.type}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Estado</p>
+            <p className="font-medium">{location.active ? "Activa" : "Inactiva"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Coordenadas</p>
+            {location.center_latitude && location.center_longitude ? (
+              <p className="font-medium">
+                {location.center_latitude}, {location.center_longitude}
+              </p>
+            ) : (
+              <p className="font-medium">Sin coordenadas registradas</p>
+            )}
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Radio</p>
+            <p className="font-medium">{location.radius} metros</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Código QR</p>
+            <p className="font-medium">
+              {location.qr_code_url ? "Disponible" : "No generado"}
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

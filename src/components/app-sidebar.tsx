@@ -59,6 +59,10 @@ const data = {
           title: "Horarios",
           url: "/schedules",
         },
+        {
+          title: "Anuncios",
+          url: "/announcements",
+        },
         // {
         //   title: "Gestionar permisos",
         //   url: "#",

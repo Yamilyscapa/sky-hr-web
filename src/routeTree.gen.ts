@@ -18,6 +18,7 @@ import { Route as organizationAcceptInvitationRouteImport } from './routes/(orga
 import { Route as companySchedulesRouteImport } from './routes/(company)/schedules'
 import { Route as companyLocationsRouteImport } from './routes/(company)/locations'
 import { Route as companyAttendanceRouteImport } from './routes/(company)/attendance'
+import { Route as companyAnnouncementsRouteImport } from './routes/(company)/announcements'
 import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 
@@ -69,6 +70,11 @@ const companyAttendanceRoute = companyAttendanceRouteImport.update({
   path: '/attendance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const companyAnnouncementsRoute = companyAnnouncementsRouteImport.update({
+  id: '/(company)/announcements',
+  path: '/announcements',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const authSignupRoute = authSignupRouteImport.update({
   id: '/(auth)/signup',
   path: '/signup',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
+  '/announcements': typeof companyAnnouncementsRoute
   '/attendance': typeof companyAttendanceRoute
   '/locations': typeof companyLocationsRoute
   '/schedules': typeof companySchedulesRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
+  '/announcements': typeof companyAnnouncementsRoute
   '/attendance': typeof companyAttendanceRoute
   '/locations': typeof companyLocationsRoute
   '/schedules': typeof companySchedulesRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/signup': typeof authSignupRoute
+  '/(company)/announcements': typeof companyAnnouncementsRoute
   '/(company)/attendance': typeof companyAttendanceRoute
   '/(company)/locations': typeof companyLocationsRoute
   '/(company)/schedules': typeof companySchedulesRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/announcements'
     | '/attendance'
     | '/locations'
     | '/schedules'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/announcements'
     | '/attendance'
     | '/locations'
     | '/schedules'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/'
     | '/(auth)/login'
     | '/(auth)/signup'
+    | '/(company)/announcements'
     | '/(company)/attendance'
     | '/(company)/locations'
     | '/(company)/schedules'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   authLoginRoute: typeof authLoginRoute
   authSignupRoute: typeof authSignupRoute
+  companyAnnouncementsRoute: typeof companyAnnouncementsRoute
   companyAttendanceRoute: typeof companyAttendanceRoute
   companyLocationsRoute: typeof companyLocationsRoute
   companySchedulesRoute: typeof companySchedulesRoute
@@ -241,6 +254,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof companyAttendanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(company)/announcements': {
+      id: '/(company)/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof companyAnnouncementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/(auth)/signup': {
       id: '/(auth)/signup'
       path: '/signup'
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   authLoginRoute: authLoginRoute,
   authSignupRoute: authSignupRoute,
+  companyAnnouncementsRoute: companyAnnouncementsRoute,
   companyAttendanceRoute: companyAttendanceRoute,
   companyLocationsRoute: companyLocationsRoute,
   companySchedulesRoute: companySchedulesRoute,

@@ -12,6 +12,34 @@ export type PaginatedListResponse<T = any> = {
   [key: string]: any;
 };
 
+export type SingleRecordResponse<T = any> = {
+  message?: string;
+  data?: T;
+  [key: string]: any;
+};
+
+export type AnnouncementPriority = "normal" | "important" | "urgent";
+
+export type AnnouncementPayload = {
+  title: string;
+  content: string;
+  priority: AnnouncementPriority;
+  published_at: string;
+  expires_at: string | null;
+};
+
+export type ApiAnnouncement = {
+  id: string;
+  organizationId: string | null;
+  title: string;
+  content: string;
+  priority: AnnouncementPriority;
+  publishedAt: string;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt?: string;
+};
+
 export function extractListData<T = any>(
   response?: PaginatedListResponse<T> | any,
 ): T[] {
@@ -35,6 +63,18 @@ export function extractListData<T = any>(
   return [];
 }
 
+export class ApiClientError extends Error {
+  status: number;
+  details?: unknown;
+
+  constructor(message: string, status: number, details?: unknown) {
+    super(message);
+    this.name = "ApiClientError";
+    this.status = status;
+    this.details = details;
+  }
+}
+
 export class API {
   private baseUrl: string;
 
@@ -47,18 +87,20 @@ export class API {
     if (!response.ok) {
       const text = await response.text();
       console.error(`HTTP error! status: ${response.status}`, text);
-      
+
       let errorMessage = `HTTP error! status: ${response.status}`;
+      let parsedBody: unknown;
       try {
-        const errorData = JSON.parse(text);
-        if (errorData.message) {
-          errorMessage = errorData.message;
+        parsedBody = JSON.parse(text);
+        const maybeMessage = (parsedBody as { message?: string })?.message;
+        if (maybeMessage) {
+          errorMessage = maybeMessage;
         }
       } catch {
         // Not JSON, use default error message
       }
-      
-      throw new Error(errorMessage);
+
+      throw new ApiClientError(errorMessage, response.status, parsedBody);
     }
 
     const contentType = response.headers.get("content-type");
@@ -102,6 +144,65 @@ export class API {
       credentials: "include",
       body: JSON.stringify(data),
     });
+  }
+
+  public async delete(url: string) {
+    return await fetch(`${this.baseUrl}${url}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+  }
+
+  // Announcement API methods
+  public async getAnnouncements(params?: {
+    includeExpired?: boolean;
+    includeFuture?: boolean;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    const finalParams = {
+      includeExpired: params?.includeExpired ? "true" : undefined,
+      includeFuture: params?.includeFuture ? "true" : undefined,
+      page: params?.page,
+      pageSize: params?.pageSize,
+    };
+
+    Object.entries(finalParams).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      searchParams.append(key, String(value));
+    });
+
+    const queryString = searchParams.toString();
+    const url = `/announcements${queryString ? `?${queryString}` : ""}`;
+    const response = await this.get(url);
+    return await this.handleResponse<PaginatedListResponse<ApiAnnouncement>>(response);
+  }
+
+  public async getAnnouncement(id: string) {
+    const response = await this.get(`/announcements/${id}`);
+    return await this.handleResponse<SingleRecordResponse<ApiAnnouncement>>(response);
+  }
+
+  public async createAnnouncement(data: AnnouncementPayload) {
+    const response = await this.post(`/announcements`, data);
+    
+    return await this.handleResponse<SingleRecordResponse<ApiAnnouncement>>(response);
+  }
+
+  public async updateAnnouncement(id: string, data: AnnouncementPayload) {
+    const response = await this.put(`/announcements/${id}`, data);
+    return await this.handleResponse<SingleRecordResponse<ApiAnnouncement>>(response);
+  }
+
+  public async deleteAnnouncement(id: string) {
+    const response = await this.delete(`/announcements/${id}`);
+    return await this.handleResponse<SingleRecordResponse<{ id: string }>>(response);
   }
 
   // Geofence API methods

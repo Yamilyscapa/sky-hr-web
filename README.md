@@ -29,6 +29,13 @@ pnpm test
 
 This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
 
+## Conectar con la API real
+
+1. Duplica `.env.local.sample` como `.env.local` y actualiza `VITE_API_URL` con el host/puerto donde corre el backend Hono (por defecto `http://localhost:8080` si usas `sky-hr-api` en local).  
+2. Todos los `fetch` usan `credentials: "include"`, por lo que debes iniciar sesión en la misma origin del backend para que Better Auth entregue las cookies de sesión.  
+3. La UI muestra `toast.success` al crear/editar/eliminar y `toast.error("No tienes permisos para realizar esta acción")` si el backend responde 401/403.  
+4. Si prefieres evitar ajustes de CORS, puedes configurar un proxy en Vite apuntando a `VITE_API_URL`, pero el flujo recomendado es consumir directamente el host de la API mediante el helper `buildUrl`.
+
 ## Shadcn
 
 Add components using the latest version of [Shadcn](https://ui.shadcn.com/).
