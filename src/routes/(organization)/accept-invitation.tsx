@@ -1,6 +1,6 @@
 import { authClient } from "@/lib/auth-client";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Card,
   CardContent,
@@ -44,6 +44,8 @@ function RouteComponent() {
   );
   const [message, setMessage] = useState("");
 
+  const processedTokenRef = useRef<string | null>(null);
+
   useEffect(() => {
     async function acceptInvitation() {
       if (!token) {
@@ -74,6 +76,14 @@ function RouteComponent() {
         setMessage("Ocurrió un error al procesar la invitación.");
         console.error("Error accepting invitation:", error);
       }
+    }
+
+    if (token && processedTokenRef.current === token) {
+      return;
+    }
+
+    if (token) {
+      processedTokenRef.current = token;
     }
 
     acceptInvitation();
