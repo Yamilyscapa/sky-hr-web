@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useOrganizationStore } from "@/store/organization-store";
 import { Separator } from "@/components/ui/separator";
 import { DataTableCard } from "@/components/ui/data-table-card";
@@ -40,7 +40,18 @@ import {
   Mail,
   // Plus, // TODO: Uncomment when create-event endpoint is ready
 } from "lucide-react";
-import api from "@/api";
+import api, { PaginationMeta, extractListData } from "@/api";
+import { authClient } from "@/lib/auth-client";
+import {
+  buildMonthOptions,
+  endOfMonth,
+  formatMonthLabel,
+  formatMonthValue,
+  getMonthRangeStrings,
+  isWithinRange,
+  startOfMonth,
+} from "@/lib/month-utils";
+import { MonthPaginationControls } from "@/components/month-pagination-controls";
 
 export const Route = createFileRoute("/(company)/attendance")({
   component: RouteComponent,
@@ -73,24 +84,13 @@ type AttendanceEvent = {
   work_duration_minutes?: number; // Calculated field
 };
 
-// API Response type for reference (handled inline in component)
-// type AttendanceReportResponse = {
-//   message: string;
-//   data: {
-//     total_records?: number;
-//     events?: AttendanceEvent[];
-//     flagged_events?: AttendanceEvent[]; // Legacy support
-//     flagged_count?: number; // Legacy support
-//     summary?: {
-//       on_time: number;
-//       late: number;
-//       absent: number;
-//       early: number;
-//       out_of_bounds?: number;
-//     };
-//   };
-// };
+type UserInfo = {
+  id: string;
+  name: string;
+  email: string;
+};
 
+const PAGE_SIZE = 20;
 function StatusBadge({ status }: { status: AttendanceStatus }) {
   const statusConfig = {
     on_time: {
@@ -191,7 +191,7 @@ function MarkAbsencesDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (emails.length === 0 || !date) {
       alert("Por favor, completa los campos requeridos (emails y fecha)");
       return;
@@ -232,15 +232,15 @@ function MarkAbsencesDialog({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="emails">Emails de empleados *</Label>
-              
+
               {/* Tags display area */}
               {emails.length > 0 && (
                 <div className="border rounded-md p-3 bg-gray-50/50 max-h-[150px] overflow-y-auto">
                   <div className="flex flex-wrap gap-2">
                     {emails.map((email, index) => (
-                      <Badge 
-                        key={index} 
-                        variant="secondary" 
+                      <Badge
+                        key={index}
+                        variant="secondary"
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm"
                       >
                         <Mail className="h-3.5 w-3.5" />
@@ -269,7 +269,7 @@ function MarkAbsencesDialog({
                 onBlur={handleEmailInputBlur}
                 className="h-10"
               />
-              
+
               <p className="text-xs text-muted-foreground">
                 Presiona Enter o coma para agregar cada email. Click en la X para remover.
               </p>
@@ -404,10 +404,12 @@ function EventDetailsDialog({
   event,
   open,
   onOpenChange,
+  usersMap,
 }: {
   event: AttendanceEvent;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  usersMap: Map<string, UserInfo>;
 }) {
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString("es-ES", {
@@ -434,7 +436,14 @@ function EventDetailsDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm font-medium text-gray-500">Usuario</p>
-              <p className="text-sm">{event.user_id}</p>
+              {usersMap.get(event.user_id) ? (
+                <div>
+                  <p className="text-sm font-medium">{usersMap.get(event.user_id)?.name}</p>
+                  <p className="text-xs text-gray-500">{usersMap.get(event.user_id)?.email}</p>
+                </div>
+              ) : (
+                <p className="text-sm">{event.user_id}</p>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Estado</p>
@@ -579,7 +588,8 @@ function ActionsCell({
 
 function createColumns(
   onViewDetails: (event: AttendanceEvent) => void,
-  onUpdateStatus: (event: AttendanceEvent) => void
+  onUpdateStatus: (event: AttendanceEvent) => void,
+  usersMap: Map<string, UserInfo>
 ): ColumnDef<AttendanceEvent>[] {
   return [
     {
@@ -616,7 +626,21 @@ function createColumns(
         );
       },
       accessorKey: "user_id",
-      cell: (info) => info.getValue(),
+      cell: ({ row }) => {
+        const userId = row.original.user_id;
+        const userInfo = usersMap.get(userId);
+        
+        if (userInfo) {
+          return (
+            <div className="flex flex-col">
+              <span className="font-medium">{userInfo.name}</span>
+              <span className="text-xs text-gray-500">{userInfo.email}</span>
+            </div>
+          );
+        }
+        
+        return <span className="text-gray-400">{userId}</span>;
+      },
       enableSorting: true,
     },
     {
@@ -713,6 +737,10 @@ function RouteComponent() {
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [markAbsencesDialogOpen, setMarkAbsencesDialogOpen] = useState(false);
   const [flaggedCount, setFlaggedCount] = useState(0);
+  const [usersMap, setUsersMap] = useState<Map<string, UserInfo>>(new Map());
+  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const { organization } = useOrganizationStore();
 
   const handleViewDetails = (event: AttendanceEvent) => {
@@ -725,7 +753,15 @@ function RouteComponent() {
     setUpdateDialogOpen(true);
   };
 
-  const columns = createColumns(handleViewDetails, handleUpdateStatus);
+  const columns = createColumns(handleViewDetails, handleUpdateStatus, usersMap);
+  const selectedMonthValue = formatMonthValue(selectedMonth);
+  const monthOptions = useMemo(
+    () => buildMonthOptions(selectedMonth),
+    [selectedMonth],
+  );
+  const currentMonthValue = formatMonthValue(startOfMonth(new Date()));
+  const isNextMonthDisabled = selectedMonthValue >= currentMonthValue;
+  const selectedMonthLabel = formatMonthLabel(selectedMonth);
 
   const table = useReactTable({
     data: attendanceEvents,
@@ -736,7 +772,30 @@ function RouteComponent() {
     enableRowSelection: true,
   });
 
-  async function fetchAttendanceReport() {
+  async function fetchOrganizationMembers() {
+    try {
+      const membersResult = await authClient.organization.listMembers();
+      const members = membersResult.data?.members || [];
+      
+      const userMap = new Map<string, UserInfo>();
+      members.forEach((member: any) => {
+        if (member.user?.id) {
+          userMap.set(member.user.id, {
+            id: member.user.id,
+            name: member.user.name || member.user.email || "Unknown",
+            email: member.user.email || "",
+          });
+        }
+      });
+      
+      setUsersMap(userMap);
+      console.log("Loaded users map:", userMap);
+    } catch (error) {
+      console.error("Error fetching organization members:", error);
+    }
+  }
+
+  async function fetchAttendanceData(page = 1, monthDate = selectedMonth) {
     if (!organization?.id) {
       return;
     }
@@ -744,93 +803,72 @@ function RouteComponent() {
     setIsLoading(true);
 
     try {
-      const result = await api.getAttendanceReport();
+      const { startDate, endDate } = getMonthRangeStrings(monthDate);
+      // Fetch both report (flagged events) and all events in parallel
+      const [reportResult, eventsResult] = await Promise.all([
+        api.getAttendanceReport(),
+        api.getAttendanceEvents({
+          page,
+          pageSize: PAGE_SIZE,
+          start_date: startDate,
+          end_date: endDate,
+        }),
+      ]);
+
+      console.log("Attendance report result:", reportResult);
+      console.log("Attendance events result:", eventsResult);
       
-      if (result?.data) {
-        // Support both old and new API response formats
-        const events = result.data.events || result.data.flagged_events || [];
-        const count = result.data.total_records || result.data.flagged_count || events.length;
-        
-        setFlaggedCount(count);
-        setAttendanceEvents(events);
+      // Process flagged events from report
+      if (reportResult?.data) {
+        const flaggedEvents = Array.isArray(reportResult.data.flagged_events)
+          ? reportResult.data.flagged_events
+          : [];
+        const start = startOfMonth(monthDate);
+        const end = endOfMonth(monthDate);
+        const filteredFlagged = flaggedEvents.filter((event: AttendanceEvent) =>
+          isWithinRange(event.check_in, start, end),
+        );
+        setFlaggedCount(filteredFlagged.length);
       }
+
+      // Process all events for the table
+      const events = extractListData<AttendanceEvent>(eventsResult);
+      setAttendanceEvents(events);
+
+      const paginationMeta = eventsResult?.pagination ?? null;
+      setPagination(paginationMeta);
+      setCurrentPage(paginationMeta?.page ?? page);
     } catch (error) {
-      console.error("Error fetching attendance report:", error);
-      // Set mock data for development
-      const mockEvents: AttendanceEvent[] = [
-        {
-          id: "1",
-          user_id: "juan.perez@example.com",
-          organization_id: organization?.id || "",
-          shift_id: null,
-          check_in: new Date().toISOString(),
-          check_out: null,
-          status: "out_of_bounds",
-          is_within_geofence: false,
-          distance_to_geofence_m: 150,
-          is_verified: true,
-          source: "qr_face",
-          latitude: "40.7128",
-          longitude: "-74.0060",
-          face_confidence: "95.5",
-          spoof_flag: false,
-          notes: "Checked in outside designated area",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          user_id: "maria.garcia@example.com",
-          organization_id: organization?.id || "",
-          shift_id: "shift-1",
-          check_in: new Date(Date.now() - 3600000).toISOString(),
-          check_out: null,
-          status: "late",
-          is_within_geofence: true,
-          distance_to_geofence_m: 0,
-          is_verified: true,
-          source: "qr_face",
-          latitude: "40.7128",
-          longitude: "-74.0060",
-          face_confidence: "98.2",
-          spoof_flag: false,
-          notes: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: "3",
-          user_id: "carlos.rodriguez@example.com",
-          organization_id: organization?.id || "",
-          shift_id: "shift-2",
-          check_in: new Date().toISOString(),
-          check_out: null,
-          status: "absent",
-          is_within_geofence: false,
-          distance_to_geofence_m: null,
-          is_verified: false,
-          source: "system",
-          latitude: null,
-          longitude: null,
-          face_confidence: null,
-          spoof_flag: false,
-          notes: "Auto-marked as absent - No check-in after grace period",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
-      setAttendanceEvents(mockEvents);
-      setFlaggedCount(mockEvents.length);
+      console.error("Error fetching attendance data:", error);
     } finally {
       setIsLoading(false);
     }
+
   }
+
+  const handlePageChange = (nextPage: number) => {
+    if (!pagination) {
+      return;
+    }
+    const totalPages = pagination.totalPages ?? 1;
+    if (nextPage < 1 || nextPage > totalPages || nextPage === currentPage) {
+      return;
+    }
+    fetchAttendanceData(nextPage, selectedMonth);
+  };
 
   useEffect(() => {
     if (organization?.id) {
-      fetchAttendanceReport();
+      fetchOrganizationMembers();
     }
   }, [organization?.id]);
+
+  useEffect(() => {
+    if (organization?.id) {
+      setCurrentPage(1);
+      fetchAttendanceData(1, selectedMonth);
+    }
+  }, [organization?.id, selectedMonth]);
 
   function handleBulkAction() {
     const selectedRows = table.getSelectedRowModel().rows;
@@ -841,36 +879,77 @@ function RouteComponent() {
   }
 
   const handleUpdateComplete = () => {
-    fetchAttendanceReport();
+    fetchAttendanceData(currentPage, selectedMonth);
+  };
+
+  const handlePreviousMonth = () => {
+    setSelectedMonth((prev) => {
+      const prevMonth = startOfMonth(prev);
+      prevMonth.setMonth(prevMonth.getMonth() - 1);
+      return startOfMonth(prevMonth);
+    });
+  };
+
+  const handleNextMonth = () => {
+    if (isNextMonthDisabled) {
+      return;
+    }
+    setSelectedMonth((prev) => {
+      const nextMonth = startOfMonth(prev);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      return startOfMonth(nextMonth);
+    });
+  };
+
+  const handleSelectMonth = (value: string) => {
+    const [year, month] = value.split("-").map(Number);
+    if (!year || !month) return;
+    const newDate = startOfMonth(new Date(year, month - 1, 1));
+    setSelectedMonth(newDate);
   };
 
   return (
-    <div className="container mx-auto">
+    <div className="space-y-6 p-6 pb-12">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Panel de asistencia</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchAttendanceReport}
-                disabled={isLoading}
-              >
-                <RefreshCw
-                  className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
-                />
-                Actualizar
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setMarkAbsencesDialogOpen(true)}
-              >
-                <UserX className="h-4 w-4 mr-2" />
-                Marcar ausencias
-              </Button>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <CardTitle>Panel de asistencia</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Mostrando datos de {selectedMonthLabel}
+              </p>
             </div>
-          </CardTitle>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+              <MonthPaginationControls
+                selectedValue={selectedMonthValue}
+                options={monthOptions}
+                onPrevious={handlePreviousMonth}
+                onNext={handleNextMonth}
+                onSelect={handleSelectMonth}
+                disableNext={isNextMonthDisabled}
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchAttendanceData(currentPage, selectedMonth)}
+                  disabled={isLoading}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+                  />
+                  Actualizar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setMarkAbsencesDialogOpen(true)}
+                >
+                  <UserX className="h-4 w-4 mr-2" />
+                  Marcar ausencias
+                </Button>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -924,6 +1003,48 @@ function RouteComponent() {
         onBulkAction={handleBulkAction}
       />
 
+      {pagination && (
+        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando{" "}
+            {Math.min(
+              (pagination.page - 1) * pagination.pageSize + 1,
+              pagination.total,
+            )}
+            {" "}
+            -
+            {" "}
+            {Math.min(pagination.page * pagination.pageSize, pagination.total)}
+            {" "}
+            de {pagination.total} registros
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page <= 1 || isLoading}
+              onClick={() => handlePageChange(pagination.page - 1)}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {pagination.page} de {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={
+                pagination.page >= (pagination.totalPages ?? pagination.page) ||
+                isLoading
+              }
+              onClick={() => handlePageChange(pagination.page + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
+
       <MarkAbsencesDialog
         open={markAbsencesDialogOpen}
         onOpenChange={setMarkAbsencesDialogOpen}
@@ -936,6 +1057,7 @@ function RouteComponent() {
             event={selectedEvent}
             open={detailsDialogOpen}
             onOpenChange={setDetailsDialogOpen}
+            usersMap={usersMap}
           />
           <UpdateStatusDialog
             event={selectedEvent}
@@ -948,4 +1070,3 @@ function RouteComponent() {
     </div>
   );
 }
-

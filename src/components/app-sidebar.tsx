@@ -1,4 +1,5 @@
 import { LogOutIcon, UserIcon, Settings } from "lucide-react";
+import { useRouter } from "@tanstack/react-router";
 import { useUserStore } from "@/store/user-store";
 import { useOrganizationStore } from "@/store/organization-store";
 
@@ -25,13 +26,16 @@ import {
 const data = {
   navMain: [
     {
+      title: "Inicio",
+      url: "/",
+    },
+    {
       title: "Gestionar personas",
       url: "#",
       items: [
         {
           title: "Empleados",
           url: "/employees",
-          isActive: true,
         },
         {
           title: "Visitantes",
@@ -75,6 +79,23 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { organization } = useOrganizationStore();
   const { user } = useUserStore();
+  const router = useRouter();
+  const currentPath = router.state.location.pathname;
+
+  // Check if a URL matches the current path
+  const isActive = (url: string) => {
+    if (url === "#") return false;
+    if (url === "/") {
+      return currentPath === "/";
+    }
+    return currentPath.startsWith(url);
+  };
+
+  // Check if any child item is active (for parent menu items)
+  const hasActiveChild = (items?: Array<{ url: string }>) => {
+    if (!items) return false;
+    return items.some((child) => isActive(child.url));
+  };
 
   return (
     <Sidebar variant="floating" {...props}>
@@ -115,16 +136,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenu className="gap-2">
             {data.navMain.map((item) => (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild>
+                <SidebarMenuButton asChild isActive={isActive(item.url) || hasActiveChild(item.items)}>
                   <a href={item.url} className="font-medium">
                     {item.title}
                   </a>
                 </SidebarMenuButton>
                 {item.items?.length ? (
                   <SidebarMenuSub className="ml-0 border-l-0 px-1.5">
-                    {item.items?.map((subItem) => (
+                    {item.items.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild isActive={subItem.isActive}>
+                        <SidebarMenuSubButton asChild isActive={isActive(subItem.url)}>
                           <a href={subItem.url}>{subItem.title}</a>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>

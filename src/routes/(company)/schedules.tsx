@@ -322,7 +322,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className="container mx-auto">
+    <div className="space-y-6 p-6 pb-12">
       <Card>
         <CardHeader>
           <CardTitle>Crear turno</CardTitle>
