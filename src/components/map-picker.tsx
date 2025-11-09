@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +54,10 @@ export function MapPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const mapCenter = useMemo(
+    () => [location.latitude, location.longitude] as [number, number],
+    [location.latitude, location.longitude],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -190,7 +194,7 @@ export function MapPicker({
   const renderMap = () => {
     if (!leafletRuntime) {
       return (
-        <div className="rounded-lg overflow-hidden border border-border h-[400px] flex items-center justify-center bg-muted/10">
+        <div className="rounded-lg overflow-hidden border border-border h-[300px] flex items-center justify-center bg-muted/10">
           <span className="text-sm text-muted-foreground">
             Cargando mapa...
           </span>
@@ -213,12 +217,13 @@ export function MapPicker({
           onMapClick(e.latlng.lat, e.latlng.lng);
         },
       });
+      const [lat, lng] = center;
 
       useEffect(() => {
-        map.flyTo(center, 13, {
-          duration: 1.5,
+        map.flyTo([lat, lng], map.getZoom(), {
+          duration: 0.5,
         });
-      }, [center, map]);
+      }, [lat, lng, map]);
 
       return null;
     }
@@ -226,10 +231,10 @@ export function MapPicker({
     return (
       <div
         className="rounded-lg overflow-hidden border border-border"
-        style={{ height: "400px" }}
+        style={{ height: "300px" }}
       >
         <MapContainer
-          center={[location.latitude, location.longitude]}
+          center={mapCenter}
           zoom={13}
           style={{ height: "100%", width: "100%" }}
           scrollWheelZoom={true}
@@ -240,7 +245,7 @@ export function MapPicker({
           />
           <MapEventHandler
             onMapClick={handleMapClick}
-            center={[location.latitude, location.longitude]}
+            center={mapCenter}
           />
           <Marker position={[location.latitude, location.longitude]} />
           <Circle
@@ -314,23 +319,21 @@ export function MapPicker({
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <label htmlFor="radius-slider" className="text-sm font-medium">
-            Radio del geocerca: {radius}m
-          </label>
-          <span className="text-xs text-muted-foreground">
-            {minRadius}m - {maxRadius}m
-          </span>
-        </div>
-        <input
-          id="radius-slider"
-          type="range"
+        <label htmlFor="radius-input" className="text-sm font-medium">
+          Radio del tolerancia (m)
+        </label>
+        <Input
+          id="radius-input"
+          type="number"
           min={minRadius}
           max={maxRadius}
+          step={5}
           value={radius}
           onChange={(e) => handleRadiusChange(Number(e.target.value))}
-          className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
         />
+        <span className="text-xs text-muted-foreground">
+          Entre {minRadius}m y {maxRadius}m
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -349,8 +352,8 @@ export function MapPicker({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Haz clic en el mapa para seleccionar la ubicación de la sucursal. Usa el
-        control deslizante para ajustar el radio del geocerca.
+        Haz clic en el mapa para seleccionar la ubicación de la sucursal y usa
+        el campo numérico para ajustar el radio del área de cobertura.
       </p>
     </div>
   );
