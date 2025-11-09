@@ -27,8 +27,13 @@ export const useOrganizationStore = create<OrganizationStore>((set) => ({
 export type OrganizationRole = "owner" | "admin" | "member" | null;
 
 function normalizeRole(role: unknown): OrganizationRole {
-  return role === "owner" || role === "admin" || role === "member"
-    ? role
+  if (typeof role !== "string") {
+    return null;
+  }
+
+  const normalized = role.toLowerCase() as OrganizationRole;
+  return normalized === "owner" || normalized === "admin" || normalized === "member"
+    ? normalized
     : null;
 }
 

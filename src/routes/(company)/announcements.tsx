@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -41,26 +42,63 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { Eye, Edit, Trash2, Loader2, PlusCircle } from "lucide-react";
-import { useOrganizationStore, useIsOrgAdmin } from "@/store/organization-store";
+import {
+  ArrowUpDown,
+  Eye,
+  Edit,
+  Trash2,
+  Loader2,
+  PlusCircle,
+} from "lucide-react";
+import {
+  useOrganizationStore,
+  useOrganizationRole,
+} from "@/store/organization-store";
+import API, {
+  AnnouncementPayload,
+  ApiAnnouncement,
+  ApiClientError,
+  AnnouncementPriority as ApiAnnouncementPriority,
+  extractListData,
+} from "@/api";
+import { DataTableCard } from "@/components/ui/data-table-card";
+import {
+  ColumnDef,
+  SortingState,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 
 export const Route = createFileRoute("/(company)/announcements")({
   component: AnnouncementsRoute,
 });
 
-type AnnouncementPriority = "normal" | "important" | "urgent";
+type AnnouncementPriority = ApiAnnouncementPriority;
 
 type AnnouncementStatus = "active" | "future" | "expired";
+
+const PRIORITY_FILTER_OPTIONS: Array<{
+  label: string;
+  value: AnnouncementPriority | "all";
+}> = [
+  { label: "Todas las prioridades", value: "all" },
+  { label: "Normal", value: "normal" },
+  { label: "Importante", value: "important" },
+  { label: "Urgente", value: "urgent" },
+];
+
+const STATUS_FILTER_OPTIONS: Array<{
+  label: string;
+  value: AnnouncementStatus | "all";
+}> = [
+  { label: "Todos los estados", value: "all" },
+  { label: "Activos", value: "active" },
+  { label: "Futuros", value: "future" },
+  { label: "Expirados", value: "expired" },
+];
 
 interface Announcement {
   id: string;
@@ -72,31 +110,6 @@ interface Announcement {
   expires_at: string | null;
   created_at: string;
 }
-
-interface ApiResponse<T> {
-  message: string;
-  data: T;
-}
-
-type AnnouncementPayload = {
-  title: string;
-  content: string;
-  priority: AnnouncementPriority;
-  published_at: string;
-  expires_at: string | null;
-};
-
-type ApiAnnouncement = {
-  id: string;
-  organizationId: string | null;
-  title: string;
-  content: string;
-  priority: AnnouncementPriority;
-  publishedAt: string;
-  expiresAt: string | null;
-  createdAt: string;
-  updatedAt?: string;
-};
 
 function fromApiAnnouncement(a: ApiAnnouncement): Announcement {
   return {
@@ -111,19 +124,9 @@ function fromApiAnnouncement(a: ApiAnnouncement): Announcement {
   };
 }
 
-class ApiError extends Error {
-  status?: number;
-
-  constructor(message: string, status?: number) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-  }
-}
-
-function isUnauthorizedError(error: unknown): error is ApiError {
+function isUnauthorizedError(error: unknown): error is ApiClientError {
   return (
-    error instanceof ApiError &&
+    error instanceof ApiClientError &&
     (error.status === 401 || error.status === 403)
   );
 }
@@ -159,99 +162,75 @@ const announcementsFormSchema = z
 type AnnouncementFormValues = z.infer<typeof announcementsFormSchema>;
 
 const ANNOUNCEMENTS_QUERY_KEY = ["announcements"] as const;
+const ANNOUNCEMENTS_FETCH_PAGE_SIZE = 100;
 
-const API_BASE = (import.meta.env?.VITE_API_URL as string | undefined) ?? "";
-
-function buildUrl(path: string, params?: Record<string, string | undefined>) {
-  const sanitizedBase = API_BASE?.replace(/\/$/, "") ?? "";
-  const target = sanitizedBase ? `${sanitizedBase}${path}` : path;
-  const searchParams = new URLSearchParams();
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== "") {
-        searchParams.set(key, value);
-      }
-    });
-  }
-  const queryString = searchParams.toString();
-  return queryString ? `${target}?${queryString}` : target;
-}
-
-async function apiRequest<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
-
-  let payload: ApiResponse<T> | null = null;
-  try {
-    payload = (await response.json()) as ApiResponse<T>;
-  } catch {
-    // Ignore JSON parse errors to fall back to generic message
-  }
-
-  if (!response.ok) {
-    const message =
-      payload?.message ?? "Ocurrió un error al comunicarse con el servidor";
-    throw new ApiError(message, response.status);
-  }
-
-  if (!payload) {
-    throw new Error("Respuesta inválida del servidor");
-  }
-
-  return payload.data;
-}
-
-async function listAnnouncements(params?: {
+async function fetchAnnouncementsFromApi(params?: {
   includeExpired?: boolean;
   includeFuture?: boolean;
 }) {
-  const url = buildUrl("/announcements", {
-    includeExpired: params?.includeExpired ? "true" : undefined,
-    includeFuture: params?.includeFuture ? "true" : undefined,
-  });
-  const rows = await apiRequest<ApiAnnouncement[]>(url);
-  return rows.map(fromApiAnnouncement);
+  const results: Announcement[] = [];
+  let currentPage = 1;
+
+  while (true) {
+    const response = await API.getAnnouncements({
+      includeExpired: params?.includeExpired,
+      includeFuture: params?.includeFuture,
+      page: currentPage,
+      pageSize: ANNOUNCEMENTS_FETCH_PAGE_SIZE,
+    });
+
+    const pageAnnouncements = extractListData<ApiAnnouncement>(response).map(
+      fromApiAnnouncement,
+    );
+    results.push(...pageAnnouncements);
+
+    const pagination = response?.pagination;
+    const totalPages = pagination?.totalPages;
+    const shouldFetchNext =
+      (totalPages && currentPage < totalPages) ||
+      (!totalPages &&
+        pageAnnouncements.length === ANNOUNCEMENTS_FETCH_PAGE_SIZE);
+
+    if (!shouldFetchNext) {
+      break;
+    }
+
+    currentPage += 1;
+  }
+
+  return results;
 }
 
-async function getAnnouncement(id: string) {
-  const url = buildUrl(`/announcements/${id}`);
-  const row = await apiRequest<ApiAnnouncement>(url);
-  return fromApiAnnouncement(row);
+async function fetchAnnouncementById(id: string) {
+  const response = await API.getAnnouncement(id);
+  if (!response?.data) {
+    throw new Error("No se pudo obtener el anuncio solicitado");
+  }
+  return fromApiAnnouncement(response.data);
 }
 
-async function createAnnouncement(payload: AnnouncementPayload) {
-  const url = buildUrl("/announcements");
-  const row = await apiRequest<ApiAnnouncement>(url, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-  return fromApiAnnouncement(row);
+async function createAnnouncementRequest(payload: AnnouncementPayload) {
+  const response = await API.createAnnouncement(payload);
+  if (!response?.data) {
+    throw new Error("No se pudo crear el anuncio");
+  }
+  return fromApiAnnouncement(response.data);
 }
 
-async function updateAnnouncement(
+async function updateAnnouncementRequest(
   id: string,
   payload: AnnouncementPayload,
 ) {
-  const url = buildUrl(`/announcements/${id}`);
-  const row = await apiRequest<ApiAnnouncement>(url, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-  return fromApiAnnouncement(row);
+  const response = await API.updateAnnouncement(id, payload);
+  if (!response?.data) {
+    throw new Error("No se pudo actualizar el anuncio");
+  }
+  return fromApiAnnouncement(response.data);
 }
 
-async function deleteAnnouncement(id: string) {
-  const url = buildUrl(`/announcements/${id}`);
-  return apiRequest<{ id: string }>(url, { method: "DELETE" });
+async function deleteAnnouncementRequest(id: string) {
+  await API.deleteAnnouncement(id);
+  return { id };
 }
 
 function computeStatus(
@@ -287,7 +266,7 @@ export function useAnnouncements(options?: {
       includeFuture,
     ] satisfies QueryKey,
     queryFn: () =>
-      listAnnouncements({
+      fetchAnnouncementsFromApi({
         includeExpired,
         includeFuture,
       }),
@@ -298,7 +277,7 @@ export function useAnnouncements(options?: {
 export function useAnnouncement(id: string | null) {
   return useQuery({
     queryKey: ["announcement", id],
-    queryFn: () => getAnnouncement(id as string),
+    queryFn: () => fetchAnnouncementById(id as string),
     enabled: !!id,
   });
 }
@@ -306,7 +285,8 @@ export function useAnnouncement(id: string | null) {
 export function useCreateAnnouncement() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: AnnouncementPayload) => createAnnouncement(payload),
+    mutationFn: (payload: AnnouncementPayload) =>
+      createAnnouncementRequest(payload),
     onSuccess: async () => {
       toast.success("Anuncio creado");
       await queryClient.invalidateQueries({
@@ -332,7 +312,7 @@ export function useUpdateAnnouncement() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { id: string; payload: AnnouncementPayload }) =>
-      updateAnnouncement(input.id, input.payload),
+      updateAnnouncementRequest(input.id, input.payload),
     onSuccess: async () => {
       toast.success("Anuncio actualizado");
       await queryClient.invalidateQueries({
@@ -357,7 +337,7 @@ export function useUpdateAnnouncement() {
 export function useDeleteAnnouncement() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => deleteAnnouncement(id),
+    mutationFn: (id: string) => deleteAnnouncementRequest(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({
         queryKey: ANNOUNCEMENTS_QUERY_KEY,
@@ -437,7 +417,8 @@ const StatusSelect = SelectBase;
 
 function AnnouncementsRoute() {
   const { organization } = useOrganizationStore();
-  const isAdmin = useIsOrgAdmin();
+  const role = useOrganizationRole();
+  const canManageAnnouncements = role !== "member";
   const [searchTerm, setSearchTerm] = useState("");
   const [priorityFilter, setPriorityFilter] =
     useState<AnnouncementPriority | "all">("all");
@@ -446,6 +427,7 @@ function AnnouncementsRoute() {
   const [includeExpired, setIncludeExpired] = useState(false);
   const [includeFuture, setIncludeFuture] = useState(false);
   const [page, setPage] = useState(1);
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] =
@@ -454,10 +436,28 @@ function AnnouncementsRoute() {
     useState<Announcement | null>(null);
   const [announcementToDelete, setAnnouncementToDelete] =
     useState<Announcement | null>(null);
+  const handleViewDetails = useCallback((announcement: Announcement) => {
+    setViewAnnouncement(announcement);
+  }, []);
+  const handlePromptDelete = useCallback(
+    (announcement: Announcement) => {
+      setAnnouncementToDelete(announcement);
+    },
+    [],
+  );
+  const handleOpenCreate = useCallback(() => {
+    setEditingAnnouncement(null);
+    setIsFormOpen(true);
+  }, []);
+
+  const handleOpenEdit = useCallback((announcement: Announcement) => {
+    setEditingAnnouncement(announcement);
+    setIsFormOpen(true);
+  }, []);
 
   const { data, isLoading, isFetching } = useAnnouncements({
-    includeExpired: isAdmin ? includeExpired : undefined,
-    includeFuture: isAdmin ? includeFuture : undefined,
+    includeExpired: canManageAnnouncements ? includeExpired : undefined,
+    includeFuture: canManageAnnouncements ? includeFuture : undefined,
     enabled: !!organization?.id,
   });
 
@@ -485,7 +485,7 @@ function AnnouncementsRoute() {
     return announcementsWithStatus.filter((announcement) => {
       const matchesSearch = normalizedSearch
         ? announcement.title.toLowerCase().includes(normalizedSearch) ||
-          announcement.content.toLowerCase().includes(normalizedSearch)
+        announcement.content.toLowerCase().includes(normalizedSearch)
         : true;
 
       const matchesPriority =
@@ -511,18 +511,197 @@ function AnnouncementsRoute() {
     );
   }, [filteredAnnouncements, page]);
 
+  const columns = useMemo<ColumnDef<AnnouncementWithStatus>[]>(() => {
+    return [
+      {
+        accessorKey: "title",
+        header: ({ column }) => (
+          <button
+            type="button"
+            className="flex items-center gap-2 text-left text-sm font-medium"
+            onClick={() =>
+              column.toggleSorting(column.getIsSorted() === "asc")
+            }
+          >
+            Título
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+          </button>
+        ),
+        cell: ({ row }) => (
+          <div className="space-y-1">
+            <p className="font-semibold leading-tight">{row.original.title}</p>
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {row.original.content}
+            </p>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "priority",
+        header: "Prioridad",
+        cell: ({ row }) => <PriorityBadge priority={row.original.priority} />,
+        enableSorting: false,
+      },
+      {
+        accessorKey: "status",
+        header: "Estado",
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        enableSorting: false,
+      },
+      {
+        accessorKey: "published_at",
+        header: ({ column }) => (
+          <button
+            type="button"
+            className="flex items-center gap-2 text-left text-sm font-medium"
+            onClick={() =>
+              column.toggleSorting(column.getIsSorted() === "asc")
+            }
+          >
+            Publicado
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+          </button>
+        ),
+        cell: ({ row }) => (
+          <p className="text-sm font-medium">
+            {formatDateTime(row.original.published_at)}
+          </p>
+        ),
+      },
+      {
+        accessorKey: "expires_at",
+        header: ({ column }) => (
+          <button
+            type="button"
+            className="flex items-center gap-2 text-left text-sm font-medium"
+            onClick={() =>
+              column.toggleSorting(column.getIsSorted() === "asc")
+            }
+          >
+            Expira
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+          </button>
+        ),
+        cell: ({ row }) => (
+          <p className="text-sm font-medium">
+            {row.original.expires_at
+              ? formatDateTime(row.original.expires_at)
+              : "Sin expiración"}
+          </p>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Ver anuncio"
+              onClick={() => handleViewDetails(row.original)}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            {canManageAnnouncements && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Editar anuncio"
+                  onClick={() => handleOpenEdit(row.original)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Eliminar anuncio"
+                  onClick={() => handlePromptDelete(row.original)}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </>
+            )}
+          </div>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+    ];
+  }, [
+    handleOpenEdit,
+    handlePromptDelete,
+    handleViewDetails,
+    canManageAnnouncements,
+  ]);
+
+  const table = useReactTable({
+    data: paginatedAnnouncements,
+    columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    enableSorting: true,
+    enableRowSelection: canManageAnnouncements,
+  });
+
+  const selectedRowCount = canManageAnnouncements
+    ? table.getSelectedRowModel().rows.length
+    : 0;
+
   const isSubmittingForm =
     createMutation.isPending || updateMutation.isPending;
 
-  const handleOpenCreate = () => {
-    setEditingAnnouncement(null);
-    setIsFormOpen(true);
+  const totalCount = filteredAnnouncements.length;
+
+  const handleBulkDelete = async () => {
+    if (!canManageAnnouncements) return;
+    const rows = table.getSelectedRowModel().rows;
+    if (!rows.length) return;
+
+    const confirmation = window.confirm(
+      rows.length === 1
+        ? "¿Deseas eliminar el anuncio seleccionado?"
+        : `¿Deseas eliminar ${rows.length} anuncios seleccionados?`,
+    );
+
+    if (!confirmation) {
+      return;
+    }
+
+    const ids = rows.map((row) => row.original.id);
+    table.resetRowSelection();
+
+    for (const id of ids) {
+      try {
+        await deleteMutation.mutateAsync(id);
+      } catch (error) {
+        console.error(error);
+      }
+    }
   };
 
-  const handleOpenEdit = (announcement: Announcement) => {
-    setEditingAnnouncement(announcement);
-    setIsFormOpen(true);
+  const goToPage = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > pageCount || nextPage === page) {
+      return;
+    }
+    setPage(nextPage);
   };
+
+  const hasResults = totalCount > 0;
+  const startRange = hasResults ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const endRange = hasResults
+    ? Math.min(page * PAGE_SIZE, totalCount)
+    : 0;
+  const paginationLabel = isLoading
+    ? "Cargando anuncios..."
+    : hasResults
+      ? `Mostrando ${startRange}-${endRange} de ${totalCount} anuncios`
+      : "No hay anuncios que coincidan con los filtros seleccionados.";
 
   const handleSubmitAnnouncement = async (values: AnnouncementFormValues) => {
     const payload: AnnouncementPayload = {
@@ -562,54 +741,187 @@ function AnnouncementsRoute() {
   };
 
   return (
-    <div className="container mx-auto space-y-8 py-4">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Anuncios</h1>
-        <p className="text-muted-foreground max-w-2xl">
-          Gestiona los anuncios internos de tu organización. Crea mensajes,
-          define su prioridad y controla su vigencia.
-        </p>
+    <div className="space-y-6 p-6 pb-12">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Anuncios
+          </h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Comunica novedades internas y mantén a tu equipo informado. Define
+            prioridad, fechas de publicación y vigencia para cada mensaje.
+          </p>
+        </div>
+        <Button
+          onClick={handleOpenCreate}
+          disabled={!canManageAnnouncements || isLoading}
+          variant={canManageAnnouncements ? "default" : "outline"}
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Nuevo anuncio
+        </Button>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-xl font-semibold">
-            Historial de anuncios
-          </CardTitle>
-          {isAdmin && (
-            <Button onClick={handleOpenCreate}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Nuevo anuncio
-            </Button>
-          )}
+        <CardHeader>
+          <div className="space-y-2">
+            <CardTitle>Filtros</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Ajusta búsqueda, prioridad y estado para encontrar anuncios
+              específicos.
+            </p>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <AnnouncementsTable
-            data={paginatedAnnouncements}
-            isAdmin={isAdmin}
-            isLoading={isLoading}
-            isFetching={isFetching}
-            search={searchTerm}
-            onSearchChange={setSearchTerm}
-            priorityFilter={priorityFilter}
-            onPriorityChange={setPriorityFilter}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            includeExpired={includeExpired}
-            includeFuture={includeFuture}
-            onIncludeExpiredChange={setIncludeExpired}
-            onIncludeFutureChange={setIncludeFuture}
-            showAdminToggles={isAdmin}
-            onView={setViewAnnouncement}
-            onEdit={handleOpenEdit}
-            onDelete={setAnnouncementToDelete}
-            page={page}
-            pageCount={pageCount}
-            onPageChange={setPage}
-            totalCount={filteredAnnouncements.length}
-          />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Field>
+              <FieldLabel htmlFor="announcement-search">Buscar</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="announcement-search"
+                  placeholder="Título o contenido"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="announcement-priority">
+                Prioridad
+              </FieldLabel>
+              <FieldContent>
+                <PrioritySelect
+                  id="announcement-priority"
+                  value={priorityFilter}
+                  onChange={(event) =>
+                    setPriorityFilter(
+                      event.target.value as AnnouncementPriority | "all",
+                    )
+                  }
+                >
+                  {PRIORITY_FILTER_OPTIONS.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </PrioritySelect>
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="announcement-status">Estado</FieldLabel>
+              <FieldContent>
+                <StatusSelect
+                  id="announcement-status"
+                  value={statusFilter}
+                  onChange={(event) =>
+                    setStatusFilter(
+                      event.target.value as AnnouncementStatus | "all",
+                    )
+                  }
+                >
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </StatusSelect>
+              </FieldContent>
+            </Field>
+          </div>
+
+          {canManageAnnouncements && (
+            <div className="flex flex-col gap-4 rounded-lg border p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="include-expired"
+                  checked={includeExpired}
+                  onCheckedChange={(checked) =>
+                    setIncludeExpired(Boolean(checked))
+                  }
+                />
+                <label
+                  htmlFor="include-expired"
+                  className="text-sm font-medium leading-none"
+                >
+                  Incluir expirados
+                  <p className="text-xs font-normal text-muted-foreground">
+                    Solo visible para administradores
+                  </p>
+                </label>
+              </div>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="include-future"
+                  checked={includeFuture}
+                  onCheckedChange={(checked) =>
+                    setIncludeFuture(Boolean(checked))
+                  }
+                />
+                <label
+                  htmlFor="include-future"
+                  className="text-sm font-medium leading-none"
+                >
+                  Incluir programados
+                  <p className="text-xs font-normal text-muted-foreground">
+                    Muestra anuncios planificados aún no publicados
+                  </p>
+                </label>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">
+            {paginationLabel}
+          </span>
+          <div className="flex items-center gap-3">
+            {isFetching && !isLoading && (
+              <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Actualizando
+              </span>
+            )}
+          </div>
+        </div>
+        <DataTableCard
+          title="Listado de anuncios"
+          table={table}
+          selectedCount={selectedRowCount}
+          bulkActionLabel="Eliminar seleccionados"
+          onBulkAction={
+            canManageAnnouncements ? handleBulkDelete : undefined
+          }
+        />
+        {pageCount > 1 && (
+          <div className="flex flex-col gap-2 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+            <span>{paginationLabel}</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(page - 1)}
+                disabled={page === 1 || isLoading}
+              >
+                Anterior
+              </Button>
+              <span>
+                Página {page} de {pageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(page + 1)}
+                disabled={page === pageCount || isLoading}
+              >
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <AnnouncementDialogForm
         open={isFormOpen}
@@ -649,296 +961,6 @@ function AnnouncementsRoute() {
   );
 }
 
-interface AnnouncementsTableProps {
-  data: AnnouncementWithStatus[];
-  isAdmin: boolean;
-  isLoading: boolean;
-  isFetching: boolean;
-  search: string;
-  onSearchChange: (value: string) => void;
-  priorityFilter: AnnouncementPriority | "all";
-  onPriorityChange: (value: AnnouncementPriority | "all") => void;
-  statusFilter: AnnouncementStatus | "all";
-  onStatusChange: (value: AnnouncementStatus | "all") => void;
-  includeExpired: boolean;
-  includeFuture: boolean;
-  onIncludeExpiredChange: (value: boolean) => void;
-  onIncludeFutureChange: (value: boolean) => void;
-  showAdminToggles: boolean;
-  onView: (announcement: Announcement) => void;
-  onEdit: (announcement: Announcement) => void;
-  onDelete: (announcement: Announcement) => void;
-  page: number;
-  pageCount: number;
-  onPageChange: (page: number) => void;
-  totalCount: number;
-}
-
-function AnnouncementsTable({
-  data,
-  isAdmin,
-  isLoading,
-  isFetching,
-  search,
-  onSearchChange,
-  priorityFilter,
-  onPriorityChange,
-  statusFilter,
-  onStatusChange,
-  includeExpired,
-  includeFuture,
-  onIncludeExpiredChange,
-  onIncludeFutureChange,
-  showAdminToggles,
-  onView,
-  onEdit,
-  onDelete,
-  page,
-  pageCount,
-  onPageChange,
-  totalCount,
-}: AnnouncementsTableProps) {
-  const priorityOptions: Array<{
-    label: string;
-    value: AnnouncementPriority | "all";
-  }> = [
-    { label: "Todas las prioridades", value: "all" },
-    { label: "Normal", value: "normal" },
-    { label: "Importante", value: "important" },
-    { label: "Urgente", value: "urgent" },
-  ];
-
-  const statusOptions: Array<{
-    label: string;
-    value: AnnouncementStatus | "all";
-  }> = [
-    { label: "Todos los estados", value: "all" },
-    { label: "Activos", value: "active" },
-    { label: "Futuros", value: "future" },
-    { label: "Expirados", value: "expired" },
-  ];
-
-  const hasData = data.length > 0;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Field>
-          <FieldLabel htmlFor="announcement-search">Buscar</FieldLabel>
-          <FieldContent>
-            <Input
-              id="announcement-search"
-              placeholder="Buscar por título o contenido"
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-            />
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="announcement-priority">
-            Prioridad
-          </FieldLabel>
-          <FieldContent>
-            <PrioritySelect
-              id="announcement-priority"
-              value={priorityFilter}
-              onChange={(event) =>
-                onPriorityChange(event.target.value as AnnouncementPriority | "all")
-              }
-            >
-              {priorityOptions.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </PrioritySelect>
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="announcement-status">Estado</FieldLabel>
-          <FieldContent>
-            <StatusSelect
-              id="announcement-status"
-              value={statusFilter}
-              onChange={(event) =>
-                onStatusChange(event.target.value as AnnouncementStatus | "all")
-              }
-            >
-              {statusOptions.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </StatusSelect>
-          </FieldContent>
-        </Field>
-        {showAdminToggles && (
-          <div className="space-y-3 rounded-md border p-4">
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="include-expired"
-                checked={includeExpired}
-                onCheckedChange={(checked) =>
-                  onIncludeExpiredChange(Boolean(checked))
-                }
-                aria-label="Mostrar anuncios expirados"
-              />
-              <label
-                htmlFor="include-expired"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Incluir expirados
-              </label>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="include-future"
-                checked={includeFuture}
-                onCheckedChange={(checked) =>
-                  onIncludeFutureChange(Boolean(checked))
-                }
-                aria-label="Mostrar anuncios futuros"
-              />
-              <label
-                htmlFor="include-future"
-                className="text-sm font-medium leading-none"
-              >
-                Incluir futuros
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-md border">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Cargando anuncios...
-          </div>
-        ) : hasData ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead>Publicado</TableHead>
-                  <TableHead>Expira</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.map((announcement) => (
-                  <TableRow key={announcement.id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {announcement.title}
-                        </span>
-                        <span className="text-muted-foreground text-sm line-clamp-2">
-                          {announcement.content}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <PriorityBadge priority={announcement.priority} />
-                    </TableCell>
-                    <TableCell>
-                      {formatDateTime(announcement.published_at)}
-                    </TableCell>
-                    <TableCell>
-                      {announcement.expires_at
-                        ? formatDateTime(announcement.expires_at)
-                        : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={announcement.status} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Ver anuncio"
-                          onClick={() => onView(announcement)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {isAdmin && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Editar anuncio"
-                              onClick={() => onEdit(announcement)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Eliminar anuncio"
-                              onClick={() => onDelete(announcement)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground">
-              No hay anuncios que coincidan con los filtros seleccionados.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          {isFetching && (
-            <span className="mr-2 inline-flex items-center">
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              Actualizando
-            </span>
-          )}
-          Mostrando {data.length ? data.length : 0} de {totalCount} anuncios
-        </div>
-        {pageCount > 1 && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(Math.max(1, page - 1))}
-              disabled={page === 1}
-            >
-              Anterior
-            </Button>
-            <span>
-              Página {page} de {pageCount}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(Math.min(pageCount, page + 1))}
-              disabled={page === pageCount}
-            >
-              Siguiente
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 interface AnnouncementDialogFormProps {
   open: boolean;
