@@ -891,8 +891,17 @@ function AnnouncementsRoute() {
           table={table}
           selectedCount={selectedRowCount}
           bulkActionLabel="Eliminar seleccionados"
-          onBulkAction={
-            canManageAnnouncements ? handleBulkDelete : undefined
+          bulkActions={
+            canManageAnnouncements
+              ? [
+                  {
+                    label: "Eliminar seleccionados",
+                    icon: Trash2,
+                    action: handleBulkDelete,
+                    destructive: true,
+                  },
+                ]
+              : []
           }
         />
         {pageCount > 1 && (

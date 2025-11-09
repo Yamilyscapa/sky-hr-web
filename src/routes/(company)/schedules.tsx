@@ -4,28 +4,30 @@ import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { useOrganizationStore } from "@/store/organization-store";
 import { Separator } from "@/components/ui/separator";
 import { DataTableCard } from "@/components/ui/data-table-card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ColumnDef } from "@tanstack/react-table";
 import { useReactTable } from "@tanstack/react-table";
 import { getCoreRowModel, getSortedRowModel } from "@tanstack/react-table";
 import {
   ArrowUpDown,
-  MoreHorizontal,
   Edit,
   Trash2,
   Eye,
   Clock,
+  CheckCircle,
 } from "lucide-react";
 import API from "@/api";
+import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 
 export const Route = createFileRoute("/(company)/schedules")({
   component: RouteComponent,
@@ -67,33 +69,57 @@ const PRESET_COLORS = [
 ];
 
 // Actions cell component
-function ActionsCell({ shift }: { shift: Shift }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-md">
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-          <Eye className="h-4 w-4" />
-          <span>Ver detalles</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-          <Edit className="h-4 w-4" />
-          <span>Editar</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600">
-          <Trash2 className="h-4 w-4" />
-          <span>Eliminar</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+function ActionsCell({
+  shift,
+  onView,
+  onEdit,
+  onToggleStatus,
+  isDeleting,
+}: {
+  shift: Shift;
+  onView: (shift: Shift) => void;
+  onEdit: (shift: Shift) => void;
+  onToggleStatus: (shift: Shift) => void;
+  isDeleting: boolean;
+}) {
+  const deleteLabel = shift.active ? "Desactivar" : "Activar";
+
+  const items: ActionMenuItem[] = [
+    {
+      label: "Ver detalles",
+      icon: Eye,
+      action: () => onView(shift),
+    },
+    {
+      label: "Editar",
+      icon: Edit,
+      action: () => onEdit(shift),
+    },
+    {
+      label: deleteLabel,
+      icon: shift.active ? Trash2 : CheckCircle,
+      action: () => onToggleStatus(shift),
+      destructive: shift.active,
+      disabled: isDeleting,
+    },
+  ];
+
+  return <ActionMenu items={items} />;
 }
 
-const columns: ColumnDef<Shift>[] = [
+type ShiftColumnHandlers = {
+  onView: (shift: Shift) => void;
+  onEdit: (shift: Shift) => void;
+  onToggleStatus: (shift: Shift) => void;
+  deletingShiftId?: string | null;
+};
+
+const createColumns = ({
+  onView,
+  onEdit,
+  onToggleStatus,
+  deletingShiftId,
+}: ShiftColumnHandlers): ColumnDef<Shift>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -186,7 +212,15 @@ const columns: ColumnDef<Shift>[] = [
     id: "actions",
     header: "",
     cell: ({ row }) => {
-      return <ActionsCell shift={row.original} />;
+      return (
+        <ActionsCell
+          shift={row.original}
+          onView={onView}
+          onEdit={onEdit}
+          onToggleStatus={onToggleStatus}
+          isDeleting={row.original.id === deletingShiftId}
+        />
+      );
     },
     enableSorting: false,
     enableHiding: false,
@@ -196,6 +230,10 @@ const columns: ColumnDef<Shift>[] = [
 function RouteComponent() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewShift, setViewShift] = useState<Shift | null>(null);
+  const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
+  const [deletingShiftId, setDeletingShiftId] = useState<string | null>(null);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const { organization } = useOrganizationStore();
 
   // Form state
@@ -211,6 +249,64 @@ function RouteComponent() {
     "friday",
   ]);
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
+  const isEditing = Boolean(editingShiftId);
+
+  const resetForm = () => {
+    setName("");
+    setStartTime("09:00");
+    setEndTime("17:00");
+    setBreakMinutes(60);
+    setSelectedDays(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+    setSelectedColor(PRESET_COLORS[0]);
+    setEditingShiftId(null);
+  };
+
+  const handleViewShift = (shift: Shift) => {
+    setViewShift(shift);
+  };
+
+  const handleEditShift = (shift: Shift) => {
+    setEditingShiftId(shift.id);
+    setName(shift.name);
+    setStartTime(shift.start_time.slice(0, 5));
+    setEndTime(shift.end_time.slice(0, 5));
+    setBreakMinutes(shift.break_minutes);
+    setSelectedDays(shift.days_of_week);
+    setSelectedColor(shift.color || PRESET_COLORS[0]);
+  };
+
+  const handleToggleShiftStatus = async (shift: Shift) => {
+    const nextState = !shift.active;
+    const actionText = nextState ? "activar" : "desactivar";
+
+    if (!window.confirm(`¿Deseas ${actionText} el turno "${shift.name}"?`)) {
+      return;
+    }
+
+    setDeletingShiftId(shift.id);
+    try {
+      const response = await API.updateShift(shift.id, { active: nextState });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      alert(`Turno ${nextState ? "activado" : "desactivado"} exitosamente`);
+      await fetchShifts();
+    } catch (error) {
+      console.error("Error updating shift status:", error);
+      alert("No se pudo actualizar el turno. Por favor, intenta de nuevo.");
+    } finally {
+      setDeletingShiftId(null);
+    }
+  };
+
+  const columns = createColumns({
+    onView: handleViewShift,
+    onEdit: handleEditShift,
+    onToggleStatus: handleToggleShiftStatus,
+    deletingShiftId,
+  });
 
   const table = useReactTable({
     data: shifts,
@@ -220,6 +316,69 @@ function RouteComponent() {
     enableSorting: true,
     enableRowSelection: true,
   });
+
+  const getSelectedShifts = () => table.getSelectedRowModel().rows.map((row) => row.original);
+
+  const handleBulkUpdateShifts = async (active: boolean) => {
+    const selected = getSelectedShifts();
+    if (selected.length === 0) {
+      alert("Selecciona al menos un turno.");
+      return;
+    }
+
+    const targets = selected.filter((shift) => shift.active !== active);
+    if (targets.length === 0) {
+      alert(
+        active
+          ? "Los turnos seleccionados ya están activos."
+          : "Los turnos seleccionados ya están inactivos.",
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `¿Deseas ${active ? "activar" : "desactivar"} ${targets.length} turno(s)?`,
+      )
+    ) {
+      return;
+    }
+
+    setIsBulkProcessing(true);
+    try {
+      await Promise.all(
+        targets.map((shift) => API.updateShift(shift.id, { active })),
+      );
+      alert(
+        active
+          ? "Turnos activados exitosamente"
+          : "Turnos desactivados exitosamente",
+      );
+      await fetchShifts();
+      table.resetRowSelection();
+    } catch (error) {
+      console.error("Error updating shifts:", error);
+      alert("Ocurrió un error al actualizar los turnos.");
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const shiftBulkActions: ActionMenuItem[] = [
+    {
+      label: "Desactivar seleccionados",
+      icon: Trash2,
+      action: () => handleBulkUpdateShifts(false),
+      destructive: true,
+      disabled: isBulkProcessing,
+    },
+    {
+      label: "Activar seleccionados",
+      icon: CheckCircle,
+      action: () => handleBulkUpdateShifts(true),
+      disabled: isBulkProcessing,
+    },
+  ];
 
   async function fetchShifts() {
     if (!organization?.id) {
@@ -280,52 +439,54 @@ function RouteComponent() {
 
     setIsSubmitting(true);
     try {
-      const response = await API.createShift({
+      const payload = {
         name: name.trim(),
-        start_time: startTime + ":00",
-        end_time: endTime + ":00",
+        start_time: startTime.length === 5 ? `${startTime}:00` : startTime,
+        end_time: endTime.length === 5 ? `${endTime}:00` : endTime,
         break_minutes: breakMinutes,
         days_of_week: selectedDays,
         color: selectedColor,
-      });
+      };
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (isEditing && editingShiftId) {
+        const response = await API.updateShift(editingShiftId, payload);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        alert("Turno actualizado exitosamente");
+      } else {
+        const response = await API.createShift(payload);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        alert("Turno creado exitosamente");
       }
 
-      alert("Turno creado exitosamente");
-
-      // Reset form
-      setName("");
-      setStartTime("09:00");
-      setEndTime("17:00");
-      setBreakMinutes(60);
-      setSelectedDays(["monday", "tuesday", "wednesday", "thursday", "friday"]);
-      setSelectedColor(PRESET_COLORS[0]);
+      resetForm();
 
       // Refresh shifts list
       await fetchShifts();
     } catch (error) {
-      console.error("Error creating shift:", error);
-      alert("Error al crear el turno. Por favor, intenta de nuevo.");
+      console.error(isEditing ? "Error updating shift:" : "Error creating shift:", error);
+      alert(
+        isEditing
+          ? "Error al actualizar el turno. Por favor, intenta de nuevo."
+          : "Error al crear el turno. Por favor, intenta de nuevo.",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  function handleBulkAction() {
-    const selectedRows = table.getSelectedRowModel().rows;
-    console.log(
-      "Bulk action on selected rows:",
-      selectedRows.map((row) => row.original)
-    );
-  }
-
   return (
     <div className="space-y-6 p-6 pb-12">
       <Card>
         <CardHeader>
-          <CardTitle>Crear turno</CardTitle>
+          <CardTitle>{isEditing ? "Editar turno" : "Crear turno"}</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -415,9 +576,27 @@ function RouteComponent() {
               </div>
             </Field>
 
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creando..." : "Crear turno"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting
+                  ? isEditing
+                    ? "Actualizando..."
+                    : "Creando..."
+                  : isEditing
+                    ? "Guardar cambios"
+                    : "Crear turno"}
+              </Button>
+              {isEditing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={resetForm}
+                >
+                  Cancelar edición
+                </Button>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -429,9 +608,77 @@ function RouteComponent() {
         table={table}
         selectedCount={table.getSelectedRowModel().rows.length}
         bulkActionLabel="Acciones masivas"
-        onBulkAction={handleBulkAction}
+        bulkActions={shiftBulkActions}
       />
+
+      {viewShift && (
+        <ShiftDetailsDialog
+          shift={viewShift}
+          open={Boolean(viewShift)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setViewShift(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
 
+function ShiftDetailsDialog({
+  shift,
+  open,
+  onOpenChange,
+}: {
+  shift: Shift;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{shift.name}</DialogTitle>
+          <DialogDescription>Detalles del turno seleccionado.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Estado</p>
+            <p className="font-medium">{shift.active ? "Activo" : "Inactivo"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Horario</p>
+            <p className="font-medium">
+              {shift.start_time} - {shift.end_time}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Días</p>
+            <p className="font-medium capitalize">
+              {shift.days_of_week.map((day) => day).join(", ")}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Descanso</p>
+            <p className="font-medium">{shift.break_minutes} minutos</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Color</p>
+            {shift.color ? (
+              <div className="mt-1 inline-flex items-center gap-2">
+                <span
+                  className="h-5 w-5 rounded-md border"
+                  style={{ backgroundColor: shift.color }}
+                />
+                <span className="font-medium">{shift.color}</span>
+              </div>
+            ) : (
+              <p className="font-medium">Sin color asignado</p>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

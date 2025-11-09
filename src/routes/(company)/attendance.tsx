@@ -5,12 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useOrganizationStore } from "@/store/organization-store";
 import { Separator } from "@/components/ui/separator";
 import { DataTableCard } from "@/components/ui/data-table-card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +21,6 @@ import { useReactTable } from "@tanstack/react-table";
 import { getCoreRowModel, getSortedRowModel } from "@tanstack/react-table";
 import {
   ArrowUpDown,
-  MoreHorizontal,
   Edit,
   Eye,
   Clock,
@@ -38,6 +32,7 @@ import {
   MapPin,
   X,
   Mail,
+  Download,
   // Plus, // TODO: Uncomment when create-event endpoint is ready
 } from "lucide-react";
 import api, { PaginationMeta, extractListData } from "@/api";
@@ -548,48 +543,42 @@ function ActionsCell({
   event,
   onViewDetails,
   onUpdateStatus,
+  onViewMap,
 }: {
   event: AttendanceEvent;
   onViewDetails: (event: AttendanceEvent) => void;
   onUpdateStatus: (event: AttendanceEvent) => void;
+  onViewMap?: (event: AttendanceEvent) => void;
 }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-md">
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem
-          className="flex items-center gap-2 cursor-pointer"
-          onClick={() => onViewDetails(event)}
-        >
-          <Eye className="h-4 w-4" />
-          <span>Ver detalles</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="flex items-center gap-2 cursor-pointer"
-          onClick={() => onUpdateStatus(event)}
-        >
-          <Edit className="h-4 w-4" />
-          <span>Actualizar estado</span>
-        </DropdownMenuItem>
-        {event.latitude && event.longitude && (
-          <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-            <MapPin className="h-4 w-4" />
-            <span>Ver en mapa</span>
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  const items: ActionMenuItem[] = [
+    {
+      label: "Ver detalles",
+      icon: Eye,
+      action: () => onViewDetails(event),
+    },
+    {
+      label: "Actualizar estado",
+      icon: Edit,
+      action: () => onUpdateStatus(event),
+    },
+  ];
+
+  if (event.latitude && event.longitude && onViewMap) {
+    items.push({
+      label: "Ver en mapa",
+      icon: MapPin,
+      action: () => onViewMap(event),
+    });
+  }
+
+  return <ActionMenu items={items} />;
 }
 
 function createColumns(
   onViewDetails: (event: AttendanceEvent) => void,
   onUpdateStatus: (event: AttendanceEvent) => void,
-  usersMap: Map<string, UserInfo>
+  usersMap: Map<string, UserInfo>,
+  onViewMap?: (event: AttendanceEvent) => void,
 ): ColumnDef<AttendanceEvent>[] {
   return [
     {
@@ -720,6 +709,7 @@ function createColumns(
             event={row.original}
             onViewDetails={onViewDetails}
             onUpdateStatus={onUpdateStatus}
+            onViewMap={onViewMap}
           />
         );
       },
@@ -741,6 +731,7 @@ function RouteComponent() {
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const { organization } = useOrganizationStore();
 
   const handleViewDetails = (event: AttendanceEvent) => {
@@ -753,7 +744,22 @@ function RouteComponent() {
     setUpdateDialogOpen(true);
   };
 
-  const columns = createColumns(handleViewDetails, handleUpdateStatus, usersMap);
+  const handleViewEventMap = (event: AttendanceEvent) => {
+    if (!event.latitude || !event.longitude) {
+      alert("Este evento no tiene coordenadas registradas.");
+      return;
+    }
+
+    const url = `https://www.google.com/maps?q=${event.latitude},${event.longitude}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const columns = createColumns(
+    handleViewDetails,
+    handleUpdateStatus,
+    usersMap,
+    handleViewEventMap,
+  );
   const selectedMonthValue = formatMonthValue(selectedMonth);
   const monthOptions = useMemo(
     () => buildMonthOptions(selectedMonth),
@@ -771,6 +777,121 @@ function RouteComponent() {
     enableSorting: true,
     enableRowSelection: true,
   });
+
+  const getSelectedEvents = () => table.getSelectedRowModel().rows.map((row) => row.original);
+
+  const handleBulkExportCsv = () => {
+    const selected = getSelectedEvents();
+    if (selected.length === 0) {
+      alert("Selecciona al menos un evento.");
+      return;
+    }
+
+    const headers = [
+      "Usuario",
+      "Email",
+      "Fecha",
+      "Entrada",
+      "Salida",
+      "Estado",
+      "Verificado",
+      "Notas",
+    ];
+
+    const rows = selected.map((event) => {
+      const userInfo = usersMap.get(event.user_id);
+      const checkInDate = new Date(event.check_in);
+      const dateString = checkInDate.toLocaleDateString("es-ES");
+      const checkInTime = checkInDate.toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const checkOutTime = event.check_out
+        ? new Date(event.check_out).toLocaleTimeString("es-ES", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "";
+
+      const values = [
+        userInfo?.name || "",
+        userInfo?.email || "",
+        dateString,
+        checkInTime,
+        checkOutTime,
+        event.status,
+        event.is_verified ? "Sí" : "No",
+        event.notes || "",
+      ];
+
+      return values
+        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+        .join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `asistencia-${selectedMonthValue}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkMarkAbsent = async () => {
+    const selected = getSelectedEvents();
+    if (selected.length === 0) {
+      alert("Selecciona al menos un evento.");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `¿Deseas marcar ${selected.length} evento(s) como ausente? Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+
+    setIsBulkProcessing(true);
+    try {
+      await Promise.all(
+        selected.map((event) =>
+          api.updateAttendanceStatus(event.id, {
+            status: "absent",
+            notes: event.notes || "Actualizado de forma masiva",
+          }),
+        ),
+      );
+      alert("Eventos actualizados correctamente");
+      table.resetRowSelection();
+      fetchAttendanceData(currentPage, selectedMonth);
+    } catch (error) {
+      console.error("Error updating events:", error);
+      alert("No se pudieron actualizar los eventos seleccionados.");
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const attendanceBulkActions: ActionMenuItem[] = [
+    {
+      label: "Exportar CSV",
+      icon: Download,
+      action: handleBulkExportCsv,
+      disabled: isBulkProcessing,
+    },
+    {
+      label: "Marcar como ausentes",
+      icon: UserX,
+      action: handleBulkMarkAbsent,
+      destructive: true,
+      disabled: isBulkProcessing,
+    },
+  ];
 
   async function fetchOrganizationMembers() {
     try {
@@ -869,14 +990,6 @@ function RouteComponent() {
       fetchAttendanceData(1, selectedMonth);
     }
   }, [organization?.id, selectedMonth]);
-
-  function handleBulkAction() {
-    const selectedRows = table.getSelectedRowModel().rows;
-    console.log(
-      "Bulk action on selected rows:",
-      selectedRows.map((row) => row.original)
-    );
-  }
 
   const handleUpdateComplete = () => {
     fetchAttendanceData(currentPage, selectedMonth);
@@ -1000,7 +1113,7 @@ function RouteComponent() {
         table={table}
         selectedCount={table.getSelectedRowModel().rows.length}
         bulkActionLabel="Acciones masivas"
-        onBulkAction={handleBulkAction}
+        bulkActions={attendanceBulkActions}
       />
 
       {pagination && (

@@ -10,12 +10,6 @@ import { DataTableCard } from "@/components/ui/data-table-card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,12 +20,13 @@ import {
 import { ColumnDef } from "@tanstack/react-table";
 import { useReactTable } from "@tanstack/react-table";
 import { getCoreRowModel, getSortedRowModel } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal, Edit, Trash2, Eye, Clock, MapPin } from "lucide-react";
+import { ArrowUpDown, Edit, Trash2, Eye, Clock, MapPin, Copy } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 import API, { extractListData } from "@/api";
 import { useUserStore } from "@/store/user-store";
 import { useOrganizationStore } from "@/store/organization-store";
+import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 
 type Shift = {
   id: string;
@@ -59,6 +54,7 @@ type Employee = {
   name: string;
   isCurrentUser?: boolean;
   status: "active" | "pending";
+  invitationId?: string;
   shift?: {
     id: string;
     name: string;
@@ -219,6 +215,119 @@ function ShiftCell({
         </Dialog>
       )}
     </>
+  );
+}
+
+function EmployeeDetailsDialog({
+  employee,
+  open,
+  onOpenChange,
+}: {
+  employee: Employee;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const geofences = employee.geofences ?? [];
+  const statusLabel = employee.status === "active" ? "Activo" : "Pendiente";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Detalles de {employee.name || employee.email}</DialogTitle>
+          <DialogDescription>
+            Información general del colaborador seleccionado.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Estado</p>
+            <Badge variant={employee.status === "active" ? "secondary" : "outline"}>
+              {statusLabel}
+            </Badge>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Correo</p>
+            <p className="font-medium break-all">{employee.email}</p>
+          </div>
+          {employee.shift && (
+            <div>
+              <p className="text-sm text-muted-foreground">Turno</p>
+              <div className="mt-1 inline-flex items-center gap-2 rounded-md border px-2 py-1 text-sm">
+                <span>{employee.shift.name}</span>
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: employee.shift.color }}
+                />
+              </div>
+            </div>
+          )}
+          <div>
+            <p className="text-sm text-muted-foreground">Ubicaciones</p>
+            {geofences.length > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-2">
+                {geofences.map((geofence) => (
+                  <Badge key={geofence.id} variant="outline" className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {geofence.name}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sin ubicaciones asignadas</p>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ManageEmployeeDialog({
+  employee,
+  shifts,
+  geofences,
+  onAssignShift,
+  onAssignLocations,
+  onRemoveLocation,
+  open,
+  onOpenChange,
+}: {
+  employee: Employee;
+  shifts: Shift[];
+  geofences: Geofence[];
+  onAssignShift: (employeeId: string, shiftId: string, effectiveFrom: string, effectiveUntil?: string) => void;
+  onAssignLocations: (employeeId: string, geofenceIds: string[], assignAll?: boolean) => void;
+  onRemoveLocation: (employeeId: string, geofenceId: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Editar {employee.name || employee.email}</DialogTitle>
+          <DialogDescription>
+            Administra el turno y las ubicaciones asignadas desde aquí.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Turno</p>
+            <ShiftCell employee={employee} shifts={shifts} onAssignShift={onAssignShift} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Ubicaciones</p>
+            <LocationCell
+              employee={employee}
+              geofences={geofences}
+              onAssignLocations={onAssignLocations}
+              onRemoveLocation={onRemoveLocation}
+            />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -437,43 +546,72 @@ function LocationCell({
 
 // Actions cell component with dropdown menu
 function ActionsCell({
-  employee: _employee,
+  employee,
+  onViewDetails,
+  onManageEmployee,
+  onDeleteEmployee,
+  isDeleting,
 }: {
   employee: Employee;
+  onViewDetails: (employee: Employee) => void;
+  onManageEmployee: (employee: Employee) => void;
+  onDeleteEmployee: (employee: Employee) => void;
+  isDeleting: boolean;
 }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-md">
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-          <Eye className="h-4 w-4" />
-          <span>Ver detalles</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-          <Edit className="h-4 w-4" />
-          <span>Editar</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600">
-          <Trash2 className="h-4 w-4" />
-          <span>Eliminar</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  const isPending = employee.status === "pending";
+  const deleteLabel = isPending ? "Cancelar invitación" : "Eliminar";
+  const deleteDisabled = isPending ? !employee.invitationId || isDeleting : isDeleting;
+
+  const items: ActionMenuItem[] = [
+    {
+      label: "Ver detalles",
+      icon: Eye,
+      action: () => onViewDetails(employee),
+    },
+    {
+      label: "Editar",
+      icon: Edit,
+      action: () => onManageEmployee(employee),
+      disabled: isPending,
+    },
+    {
+      label: deleteLabel,
+      icon: Trash2,
+      action: () => onDeleteEmployee(employee),
+      destructive: true,
+      disabled: deleteDisabled,
+    },
+  ];
+
+  return <ActionMenu items={items} />;
 }
 
+type ColumnBuilderParams = {
+  shifts: Shift[];
+  geofences: Geofence[];
+  onAssignShift: (employeeId: string, shiftId: string, effectiveFrom: string, effectiveUntil?: string) => void;
+  onAssignLocations: (employeeId: string, geofenceIds: string[], assignAll?: boolean) => void;
+  onRemoveLocation: (employeeId: string, geofenceId: string) => void;
+  onViewEmployee: (employee: Employee) => void;
+  onManageEmployee: (employee: Employee) => void;
+  onDeleteEmployee: (employee: Employee) => void;
+  deletingEmployeeId?: string | null;
+  cancellingInvitationId?: string | null;
+};
+
 // Define columns as a function so we can pass shifts, geofences, and handlers
-const createColumns = (
-  shifts: Shift[],
-  geofences: Geofence[],
-  onAssignShift: (employeeId: string, shiftId: string, effectiveFrom: string, effectiveUntil?: string) => void,
-  onAssignLocations: (employeeId: string, geofenceIds: string[], assignAll?: boolean) => void,
-  onRemoveLocation: (employeeId: string, geofenceId: string) => void
-): ColumnDef<Employee>[] => [
+const createColumns = ({
+  shifts,
+  geofences,
+  onAssignShift,
+  onAssignLocations,
+  onRemoveLocation,
+  onViewEmployee,
+  onManageEmployee,
+  onDeleteEmployee,
+  deletingEmployeeId,
+  cancellingInvitationId,
+}: ColumnBuilderParams): ColumnDef<Employee>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -570,7 +708,20 @@ const createColumns = (
     id: "actions",
     header: "",
     cell: ({ row }) => {
-      return <ActionsCell employee={row.original} />;
+      const employee = row.original;
+      const isDeleting =
+        (!!employee.invitationId && employee.invitationId === cancellingInvitationId) ||
+        (!!employee.id && employee.id === deletingEmployeeId);
+
+      return (
+        <ActionsCell
+          employee={employee}
+          onViewDetails={onViewEmployee}
+          onManageEmployee={onManageEmployee}
+          onDeleteEmployee={onDeleteEmployee}
+          isDeleting={Boolean(isDeleting)}
+        />
+      );
     },
     enableSorting: false,
     enableHiding: false,
@@ -592,6 +743,11 @@ function RouteComponent() {
   const [data, setData] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
+  const [detailsEmployee, setDetailsEmployee] = useState<Employee | null>(null);
+  const [manageEmployee, setManageEmployee] = useState<Employee | null>(null);
+  const [deletingEmployeeId, setDeletingEmployeeId] = useState<string | null>(null);
+  const [cancellingInvitationId, setCancellingInvitationId] = useState<string | null>(null);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const { user } = useUserStore();
   const { organization } = useOrganizationStore();
 
@@ -682,7 +838,81 @@ function RouteComponent() {
     }
   };
 
-  const columns = createColumns(shifts, geofences, handleAssignShift, handleAssignLocations, handleRemoveLocation);
+  const handleViewEmployeeDetails = (employee: Employee) => {
+    setDetailsEmployee(employee);
+  };
+
+  const handleManageEmployee = (employee: Employee) => {
+    if (employee.status === "pending") {
+      alert("No puedes editar una invitación pendiente.");
+      return;
+    }
+    setManageEmployee(employee);
+  };
+
+  const handleDeleteEmployee = async (employee: Employee) => {
+    if (employee.status === "pending") {
+      if (!employee.invitationId) {
+        alert("No se encontró la invitación para cancelar.");
+        return;
+      }
+      if (!window.confirm(`¿Deseas cancelar la invitación para ${employee.email}?`)) {
+        return;
+      }
+      setCancellingInvitationId(employee.invitationId);
+      try {
+        await authClient.organization.cancelInvitation({
+          invitationId: employee.invitationId,
+        });
+        alert("Invitación cancelada exitosamente");
+        await handleUsersList();
+      } catch (error) {
+        console.error("Error cancelando invitación:", error);
+        alert("Error al cancelar la invitación. Por favor, intenta de nuevo.");
+      } finally {
+        setCancellingInvitationId(null);
+      }
+      return;
+    }
+
+    const identifier = employee.id || employee.email;
+    if (!identifier) {
+      alert("No se encontró el identificador del empleado.");
+      return;
+    }
+
+    if (!window.confirm(`¿Deseas eliminar a ${employee.name || employee.email}?`)) {
+      return;
+    }
+
+    setDeletingEmployeeId(employee.id ?? null);
+    try {
+      await authClient.organization.removeMember({
+        memberIdOrEmail: identifier,
+        organizationId: organization?.id,
+      });
+      alert("Empleado eliminado exitosamente");
+      await handleUsersList();
+    } catch (error) {
+      console.error("Error eliminando empleado:", error);
+      alert("Error al eliminar el empleado. Por favor, intenta de nuevo.");
+    } finally {
+      setDeletingEmployeeId(null);
+    }
+  };
+
+  const columns = createColumns({
+    shifts,
+    geofences,
+    onAssignShift: handleAssignShift,
+    onAssignLocations: handleAssignLocations,
+    onRemoveLocation: handleRemoveLocation,
+    onViewEmployee: handleViewEmployeeDetails,
+    onManageEmployee: handleManageEmployee,
+    onDeleteEmployee: handleDeleteEmployee,
+    deletingEmployeeId,
+    cancellingInvitationId,
+  });
 
   const table = useReactTable({
     data,
@@ -692,6 +922,113 @@ function RouteComponent() {
     enableSorting: true,
     enableRowSelection: true,
   });
+
+  const getSelectedEmployees = () => table.getSelectedRowModel().rows.map((row) => row.original);
+
+  const handleBulkRemoveEmployees = async () => {
+    const selectedEmployees = getSelectedEmployees();
+    if (selectedEmployees.length === 0) {
+      alert("Selecciona al menos un empleado.");
+      return;
+    }
+
+    const pendingInvites = selectedEmployees.filter(
+      (employee) => employee.status === "pending" && employee.invitationId,
+    );
+    const activeMembers = selectedEmployees.filter(
+      (employee) => employee.status === "active" && (employee.id || employee.email),
+    );
+
+    if (pendingInvites.length === 0 && activeMembers.length === 0) {
+      alert("No hay acciones disponibles para los registros seleccionados.");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `¿Deseas procesar ${selectedEmployees.length} registro(s)? Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+
+    setIsBulkProcessing(true);
+    try {
+      await Promise.all([
+        ...pendingInvites.map((employee) =>
+          employee.invitationId
+            ? authClient.organization.cancelInvitation({
+                invitationId: employee.invitationId,
+              })
+            : Promise.resolve(),
+        ),
+        ...activeMembers.map((employee) =>
+          authClient.organization.removeMember({
+            memberIdOrEmail: employee.id || employee.email,
+            organizationId: organization?.id,
+          }),
+        ),
+      ]);
+      alert("Acciones masivas completadas");
+      await handleUsersList();
+      table.resetRowSelection();
+    } catch (error) {
+      console.error("Error al ejecutar la acción masiva:", error);
+      alert("Ocurrió un error. Por favor, intenta de nuevo.");
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkCopyEmails = async () => {
+    const selectedEmployees = getSelectedEmployees();
+    if (selectedEmployees.length === 0) {
+      alert("Selecciona al menos un empleado.");
+      return;
+    }
+
+    const emails = Array.from(
+      new Set(
+        selectedEmployees
+          .map((employee) => employee.email)
+          .filter((email): email is string => Boolean(email)),
+      ),
+    );
+
+    if (emails.length === 0) {
+      alert("Los registros seleccionados no tienen correos disponibles.");
+      return;
+    }
+
+    const emailString = emails.join(", ");
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(emailString);
+        alert("Correos copiados al portapapeles");
+        return;
+      } catch (error) {
+        console.error("Error copiando correos:", error);
+      }
+    }
+
+    window.prompt("Copia los correos manualmente:", emailString);
+  };
+
+  const employeeBulkActions: ActionMenuItem[] = [
+    {
+      label: "Eliminar seleccionados",
+      icon: Trash2,
+      action: handleBulkRemoveEmployees,
+      destructive: true,
+      disabled: isBulkProcessing,
+    },
+    {
+      label: "Copiar correos",
+      icon: Copy,
+      action: handleBulkCopyEmails,
+      disabled: isBulkProcessing,
+    },
+  ];
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -771,6 +1108,7 @@ function RouteComponent() {
       .filter((invitation: any) => invitation.status !== "accepted")
       .map(
         (invitation: any) => ({
+          invitationId: invitation.id,
           email: invitation.email ?? "",
           name: "",
           isCurrentUser: false,
@@ -924,9 +1262,38 @@ function RouteComponent() {
         table={table}
         selectedCount={table.getSelectedRowModel().rows.length}
         bulkActionLabel="Acciones masivas"
-        onBulkAction={handleBulkAction}
+        bulkActions={employeeBulkActions}
         className="mt-8"
       />
+
+      {detailsEmployee && (
+        <EmployeeDetailsDialog
+          employee={detailsEmployee}
+          open={Boolean(detailsEmployee)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailsEmployee(null);
+            }
+          }}
+        />
+      )}
+
+      {manageEmployee && manageEmployee.status === "active" && (
+        <ManageEmployeeDialog
+          employee={manageEmployee}
+          shifts={shifts}
+          geofences={geofences}
+          onAssignShift={handleAssignShift}
+          onAssignLocations={handleAssignLocations}
+          onRemoveLocation={handleRemoveLocation}
+          open={Boolean(manageEmployee)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setManageEmployee(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
