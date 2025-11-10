@@ -16,6 +16,7 @@ import { Route as organizationGettingStartedRouteImport } from './routes/(organi
 import { Route as organizationCreateOrganizationRouteImport } from './routes/(organization)/create-organization'
 import { Route as organizationAcceptInvitationRouteImport } from './routes/(organization)/accept-invitation'
 import { Route as companySchedulesRouteImport } from './routes/(company)/schedules'
+import { Route as companyPermissionsRouteImport } from './routes/(company)/permissions'
 import { Route as companyLocationsRouteImport } from './routes/(company)/locations'
 import { Route as companyAttendanceRouteImport } from './routes/(company)/attendance'
 import { Route as companyAnnouncementsRouteImport } from './routes/(company)/announcements'
@@ -60,6 +61,11 @@ const companySchedulesRoute = companySchedulesRouteImport.update({
   path: '/schedules',
   getParentRoute: () => rootRouteImport,
 } as any)
+const companyPermissionsRoute = companyPermissionsRouteImport.update({
+  id: '/(company)/permissions',
+  path: '/permissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const companyLocationsRoute = companyLocationsRouteImport.update({
   id: '/(company)/locations',
   path: '/locations',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/announcements': typeof companyAnnouncementsRoute
   '/attendance': typeof companyAttendanceRoute
   '/locations': typeof companyLocationsRoute
+  '/permissions': typeof companyPermissionsRoute
   '/schedules': typeof companySchedulesRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/announcements': typeof companyAnnouncementsRoute
   '/attendance': typeof companyAttendanceRoute
   '/locations': typeof companyLocationsRoute
+  '/permissions': typeof companyPermissionsRoute
   '/schedules': typeof companySchedulesRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/(company)/announcements': typeof companyAnnouncementsRoute
   '/(company)/attendance': typeof companyAttendanceRoute
   '/(company)/locations': typeof companyLocationsRoute
+  '/(company)/permissions': typeof companyPermissionsRoute
   '/(company)/schedules': typeof companySchedulesRoute
   '/(organization)/accept-invitation': typeof organizationAcceptInvitationRoute
   '/(organization)/create-organization': typeof organizationCreateOrganizationRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/attendance'
     | '/locations'
+    | '/permissions'
     | '/schedules'
     | '/accept-invitation'
     | '/create-organization'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/attendance'
     | '/locations'
+    | '/permissions'
     | '/schedules'
     | '/accept-invitation'
     | '/create-organization'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/(company)/announcements'
     | '/(company)/attendance'
     | '/(company)/locations'
+    | '/(company)/permissions'
     | '/(company)/schedules'
     | '/(organization)/accept-invitation'
     | '/(organization)/create-organization'
@@ -181,6 +193,7 @@ export interface RootRouteChildren {
   companyAnnouncementsRoute: typeof companyAnnouncementsRoute
   companyAttendanceRoute: typeof companyAttendanceRoute
   companyLocationsRoute: typeof companyLocationsRoute
+  companyPermissionsRoute: typeof companyPermissionsRoute
   companySchedulesRoute: typeof companySchedulesRoute
   organizationAcceptInvitationRoute: typeof organizationAcceptInvitationRoute
   organizationCreateOrganizationRoute: typeof organizationCreateOrganizationRoute
@@ -240,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof companySchedulesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(company)/permissions': {
+      id: '/(company)/permissions'
+      path: '/permissions'
+      fullPath: '/permissions'
+      preLoaderRoute: typeof companyPermissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/(company)/locations': {
       id: '/(company)/locations'
       path: '/locations'
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   companyAnnouncementsRoute: companyAnnouncementsRoute,
   companyAttendanceRoute: companyAttendanceRoute,
   companyLocationsRoute: companyLocationsRoute,
+  companyPermissionsRoute: companyPermissionsRoute,
   companySchedulesRoute: companySchedulesRoute,
   organizationAcceptInvitationRoute: organizationAcceptInvitationRoute,
   organizationCreateOrganizationRoute: organizationCreateOrganizationRoute,

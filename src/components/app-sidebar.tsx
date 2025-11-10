@@ -45,6 +45,10 @@ const data = {
           title: "Gestionar asistencia",
           url: "/attendance",
         },
+        {
+          title: "Gestionar permisos",
+          url: "/permissions",
+        },  
       ],
     },
     {
