@@ -48,7 +48,7 @@ import {
 } from "@/lib/month-utils";
 import { MonthPaginationControls } from "@/components/month-pagination-controls";
 
-export const Route = createFileRoute("/(company)/attendance")({
+export const Route = createFileRoute("/_protected/(company)/attendance")({
   component: RouteComponent,
 });
 

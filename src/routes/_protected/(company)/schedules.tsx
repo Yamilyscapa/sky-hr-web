@@ -29,7 +29,7 @@ import {
 import API from "@/api";
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 
-export const Route = createFileRoute("/(company)/schedules")({
+export const Route = createFileRoute("/_protected/(company)/schedules")({
   component: RouteComponent,
 });
 

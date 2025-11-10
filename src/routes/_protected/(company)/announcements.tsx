@@ -72,7 +72,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
-export const Route = createFileRoute("/(company)/announcements")({
+export const Route = createFileRoute("/_protected/(company)/announcements")({
   component: AnnouncementsRoute,
 });
 

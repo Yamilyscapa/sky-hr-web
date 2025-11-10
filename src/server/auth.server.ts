@@ -1,5 +1,6 @@
 import { authMiddleware } from "@/middleware/auth.middleware";
 import { createServerFn } from "@tanstack/react-start";
+import { notMemberRoute as notMemberRouteMiddleware } from "@/middleware/auth.middleware";
 import {
   getUser as getUserMiddleware,
   isAuthenticated as isAuthenticatedMiddleware,
@@ -31,4 +32,12 @@ export const isAuthenticated = createServerFn({
   .middleware([isAuthenticatedMiddleware])
   .handler(async ({ context }) => {
     return context.isAuthenticated;
+  });
+
+export const notMemberRoute = createServerFn({
+  method: "GET",
+})
+  .middleware([notMemberRouteMiddleware])
+  .handler(async ({ context }) => {
+    return context.isMember;
   });
