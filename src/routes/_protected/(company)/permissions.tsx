@@ -78,7 +78,7 @@ import {
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import { authClient } from "@/lib/auth-client";
 
-export const Route = createFileRoute("/(company)/permissions")({
+export const Route = createFileRoute("/_protected/(company)/permissions")({
   component: PermissionsRoute,
 });
 
