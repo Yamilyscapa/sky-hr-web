@@ -10,15 +10,20 @@ import {
 } from "@/components/ui/card";
 import { useAuthData } from "@/hooks/use-auth-data";
 import { getUserInvitations, getUserOrganizations } from "@/server/organization.server";
-import { notMemberRoute } from "@/server/auth.server";
+import { isAuthenticated, notMemberRoute } from "@/server/auth.server";
 
 export const Route = createFileRoute("/(organization)/getting-started")({
   component: RouteComponent,
   beforeLoad: async () => {
+    const auth = await isAuthenticated();
     const isMember = await notMemberRoute();
     const invitations = await getUserInvitations();
     const hasPendingInvitations = invitations?.data?.some((invitation) => invitation.status === "pending");
 
+    if (!auth) {
+      throw redirect({ to: "/login" });
+    }
+    
     if (hasPendingInvitations) {
       const invitation = invitations?.data?.find((invitation) => invitation.status === "pending");
       if (invitation?.status !== "pending") {

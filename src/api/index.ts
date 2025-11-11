@@ -96,7 +96,9 @@ export class API {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.API_URL ?? "http://localhost:8080";
+     this.baseUrl = import.meta.env.VITE_API_URL;
+
+     console.log(this.baseUrl);
   }
 
   // Helper method to handle responses

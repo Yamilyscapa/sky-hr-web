@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Outlet } from '@tanstack/react-router'
 import { isAuthenticated, notMemberRoute } from '@/server/auth.server'
 import { getOrganization, getUserOrganizations } from '@/server/organization.server'
+import { authClient } from '@/lib/auth-client'
 
 export const Route = createFileRoute('/_protected')({
   component: RouteComponent,
@@ -29,6 +30,12 @@ export const Route = createFileRoute('/_protected')({
 
       // If user has organizations, set the first one as active
       if (organizations?.data && organizations.data.length > 0) {
+        const org = organizations.data[0];
+        if (org.id) {
+          await authClient.organization.setActive({
+            organizationId: org.id,
+          });
+        }
       } else {
         throw redirect({ to: "/getting-started" });
       }

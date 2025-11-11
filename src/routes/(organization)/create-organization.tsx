@@ -10,19 +10,26 @@ import { Input } from "@/components/ui/input";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
 import { getUserInvitations } from "@/server/organization.server";
+import { isAuthenticated } from "@/server/auth.server";
 
 export const Route = createFileRoute("/(organization)/create-organization")({
   component: RouteComponent,
   beforeLoad: async () => {
-    // Check if user has pending invitations first
-    const invitations = await getUserInvitations();
-    
-    // If user has pending invitations, they should accept those instead of creating an organization
-    if (invitations?.data && invitations.data.length > 0) {
-      const firstInvitation = invitations.data[0];
-      throw redirect({
-        to: "/accept-invitation",
-        search: { token: firstInvitation.id },
+    const auth = await isAuthenticated();
+    if (!auth) {
+      throw redirect({ to: "/login" });
+    }
+    const { data: invitations } = await getUserInvitations();
+
+    if (invitations && invitations.length > 0) {
+
+      invitations.forEach((invitation) => {
+        if (invitation.status === "pending") {
+          throw redirect({
+            to: "/accept-invitation",
+            search: { token: invitation.id },
+          });
+        }
       });
     }
   },
