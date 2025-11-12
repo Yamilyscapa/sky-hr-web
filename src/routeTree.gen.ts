@@ -15,6 +15,7 @@ import { Route as organizationSettingsRouteImport } from './routes/(organization
 import { Route as organizationGettingStartedRouteImport } from './routes/(organization)/getting-started'
 import { Route as organizationCreateOrganizationRouteImport } from './routes/(organization)/create-organization'
 import { Route as organizationAcceptInvitationRouteImport } from './routes/(organization)/accept-invitation'
+import { Route as companyVisitorsRouteImport } from './routes/(company)/visitors'
 import { Route as companySchedulesRouteImport } from './routes/(company)/schedules'
 import { Route as companyLocationsRouteImport } from './routes/(company)/locations'
 import { Route as companyAttendanceRouteImport } from './routes/(company)/attendance'
@@ -55,6 +56,11 @@ const organizationAcceptInvitationRoute =
     path: '/accept-invitation',
     getParentRoute: () => rootRouteImport,
   } as any)
+const companyVisitorsRoute = companyVisitorsRouteImport.update({
+  id: '/(company)/visitors',
+  path: '/visitors',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const companySchedulesRoute = companySchedulesRouteImport.update({
   id: '/(company)/schedules',
   path: '/schedules',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/attendance': typeof companyAttendanceRoute
   '/locations': typeof companyLocationsRoute
   '/schedules': typeof companySchedulesRoute
+  '/visitors': typeof companyVisitorsRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
   '/getting-started': typeof organizationGettingStartedRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/attendance': typeof companyAttendanceRoute
   '/locations': typeof companyLocationsRoute
   '/schedules': typeof companySchedulesRoute
+  '/visitors': typeof companyVisitorsRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
   '/getting-started': typeof organizationGettingStartedRoute
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/(company)/attendance': typeof companyAttendanceRoute
   '/(company)/locations': typeof companyLocationsRoute
   '/(company)/schedules': typeof companySchedulesRoute
+  '/(company)/visitors': typeof companyVisitorsRoute
   '/(organization)/accept-invitation': typeof organizationAcceptInvitationRoute
   '/(organization)/create-organization': typeof organizationCreateOrganizationRoute
   '/(organization)/getting-started': typeof organizationGettingStartedRoute
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/attendance'
     | '/locations'
     | '/schedules'
+    | '/visitors'
     | '/accept-invitation'
     | '/create-organization'
     | '/getting-started'
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/attendance'
     | '/locations'
     | '/schedules'
+    | '/visitors'
     | '/accept-invitation'
     | '/create-organization'
     | '/getting-started'
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/(company)/attendance'
     | '/(company)/locations'
     | '/(company)/schedules'
+    | '/(company)/visitors'
     | '/(organization)/accept-invitation'
     | '/(organization)/create-organization'
     | '/(organization)/getting-started'
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   companyAttendanceRoute: typeof companyAttendanceRoute
   companyLocationsRoute: typeof companyLocationsRoute
   companySchedulesRoute: typeof companySchedulesRoute
+  companyVisitorsRoute: typeof companyVisitorsRoute
   organizationAcceptInvitationRoute: typeof organizationAcceptInvitationRoute
   organizationCreateOrganizationRoute: typeof organizationCreateOrganizationRoute
   organizationGettingStartedRoute: typeof organizationGettingStartedRoute
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       path: '/accept-invitation'
       fullPath: '/accept-invitation'
       preLoaderRoute: typeof organizationAcceptInvitationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(company)/visitors': {
+      id: '/(company)/visitors'
+      path: '/visitors'
+      fullPath: '/visitors'
+      preLoaderRoute: typeof companyVisitorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(company)/schedules': {
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   companyAttendanceRoute: companyAttendanceRoute,
   companyLocationsRoute: companyLocationsRoute,
   companySchedulesRoute: companySchedulesRoute,
+  companyVisitorsRoute: companyVisitorsRoute,
   organizationAcceptInvitationRoute: organizationAcceptInvitationRoute,
   organizationCreateOrganizationRoute: organizationCreateOrganizationRoute,
   organizationGettingStartedRoute: organizationGettingStartedRoute,
