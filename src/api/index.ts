@@ -40,6 +40,23 @@ export type ApiAnnouncement = {
   updatedAt?: string;
 };
 
+export type PermissionStatus = "pending" | "approved" | "rejected";
+
+export type ApiPermission = {
+  id: string;
+  userId: string;
+  organizationId: string;
+  message: string;
+  documentsUrl: string[];
+  startingDate: string;
+  endDate: string;
+  status: PermissionStatus;
+  approvedBy: string | null;
+  supervisorComment: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export function extractListData<T = any>(
   response?: PaginatedListResponse<T> | any,
 ): T[] {
@@ -79,7 +96,9 @@ export class API {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.API_URL ?? "http://localhost:8080";
+     this.baseUrl = import.meta.env.VITE_API_URL;
+
+     console.log(this.baseUrl);
   }
 
   // Helper method to handle responses
@@ -403,6 +422,92 @@ export class API {
   }) {
     const response = await this.post("/attendance/admin/mark-absences", data || {});
     return await this.handleResponse(response);
+  }
+
+  // Permissions API methods
+  public async getPermissions(params?: {
+    status?: PermissionStatus;
+    userId?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    const finalParams = {
+      status: params?.status,
+      userId: params?.userId,
+      page: params?.page,
+      pageSize: params?.pageSize,
+    };
+
+    Object.entries(finalParams).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      searchParams.append(key, String(value));
+    });
+
+    const queryString = searchParams.toString();
+    const url = `/permissions${queryString ? `?${queryString}` : ""}`;
+    const response = await this.get(url);
+    return await this.handleResponse<PaginatedListResponse<ApiPermission>>(response);
+  }
+
+  public async getPendingPermissions(params?: {
+    userId?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    const finalParams = {
+      userId: params?.userId,
+      page: params?.page,
+      pageSize: params?.pageSize,
+    };
+
+    Object.entries(finalParams).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      searchParams.append(key, String(value));
+    });
+
+    const queryString = searchParams.toString();
+    const url = `/permissions/pending${queryString ? `?${queryString}` : ""}`;
+    const response = await this.get(url);
+    return await this.handleResponse<PaginatedListResponse<ApiPermission>>(response);
+  }
+
+  public async getPermission(id: string) {
+    const response = await this.get(`/permissions/${id}`);
+    return await this.handleResponse<SingleRecordResponse<ApiPermission>>(response);
+  }
+
+  public async approvePermission(id: string, comment?: string) {
+    const response = await this.post(`/permissions/${id}/approve`, {
+      comment: comment || undefined,
+    });
+    return await this.handleResponse<SingleRecordResponse<ApiPermission>>(response);
+  }
+
+  public async rejectPermission(id: string, comment: string) {
+    const response = await this.post(`/permissions/${id}/reject`, {
+      comment,
+    });
+    return await this.handleResponse<SingleRecordResponse<ApiPermission>>(response);
+  }
+
+  public async addPermissionDocuments(id: string, files: File[]) {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("documents", file);
+    });
+
+    const response = await fetch(`${this.baseUrl}/permissions/${id}/documents`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    return await this.handleResponse<SingleRecordResponse<ApiPermission>>(response);
   }
 }
 

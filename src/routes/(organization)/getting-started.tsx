@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,33 +8,33 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getUserInvitations, getUserOrganizations } from "@/server/organization.server";
-import { isAuthenticated } from "@/server/auth.server";
 import { useAuthData } from "@/hooks/use-auth-data";
+import { getUserInvitations, getUserOrganizations } from "@/server/organization.server";
+import { isAuthenticated, notMemberRoute } from "@/server/auth.server";
 
 export const Route = createFileRoute("/(organization)/getting-started")({
   component: RouteComponent,
   beforeLoad: async () => {
     const auth = await isAuthenticated();
+    const isMember = await notMemberRoute();
+    const invitations = await getUserInvitations();
+    const hasPendingInvitations = invitations?.data?.some((invitation) => invitation.status === "pending");
 
     if (!auth) {
-      throw redirect({ to: "/login", search: { redirect: "", token: "" } });
+      throw redirect({ to: "/login" });
+    }
+    
+    if (hasPendingInvitations) {
+      const invitation = invitations?.data?.find((invitation) => invitation.status === "pending");
+      if (invitation?.status !== "pending") {
+        return;
+      }
+
+      throw redirect({ to: "/accept-invitation", search: { token: invitation?.id || "" } });
     }
 
-    // Check if user already has organizations
-    const organizations = await getUserOrganizations();
-    if (organizations?.data && organizations.data.length > 0) {
+    if (!isMember) {
       throw redirect({ to: "/" });
-    }
-
-    // Check if user has pending invitations
-    const invitations = await getUserInvitations();
-    if (invitations?.data && invitations.data.length > 0) {
-      const firstInvitation = invitations.data[0];
-      throw redirect({
-        to: "/accept-invitation",
-        search: { token: firstInvitation.id },
-      });
     }
   },
 });
@@ -41,6 +42,18 @@ export const Route = createFileRoute("/(organization)/getting-started")({
 function RouteComponent() {
   const navigate = useNavigate();
   const { session } = useAuthData();
+  const [hasOrganizations, setHasOrganizations] = useState(false);
+
+  useEffect(() => {
+    getUserOrganizations().then((organizations) => {
+      if (organizations.data && organizations.data.length > 0) {
+        const org = Boolean(organizations.data[0].id);
+        setHasOrganizations(org);
+      } else {
+        setHasOrganizations(false);
+      }
+    });
+  }, [])
 
   return (
     <div className="container mx-auto flex min-h-screen items-center justify-center p-4">
@@ -128,8 +141,9 @@ function RouteComponent() {
                 onClick={() => navigate({ to: "/create-organization" })}
                 className="w-full"
                 size="lg"
+                disabled={hasOrganizations}
               >
-                Crear mi organización
+                {hasOrganizations ? "Solicita tu invitación" : "Crear mi organización"}
               </Button>
             </CardContent>
           </Card>

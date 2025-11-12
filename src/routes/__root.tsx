@@ -3,6 +3,7 @@ import {
   Scripts,
   createRootRouteWithContext,
   useRouter,
+  Link,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import {
@@ -23,6 +24,8 @@ import type { User } from "@/store/user-store";
 import type { Organization } from "@/store/organization-store";
 import { useEffect, useMemo } from "react";
 import { useAuthData } from "@/hooks/use-auth-data";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface MyRouterContext {
   queryClient: QueryClient;
@@ -50,6 +53,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
     ],
   }),
   shellComponent: RootDocument,
+  notFoundComponent: NotFoundComponent,
   // No loader - using React Query for data fetching with caching
 });
 
@@ -151,4 +155,36 @@ function AuthDataSynchronizer({
   }, [user, organization, setUser, setOrganization]);
 
   return null;
+}
+
+function NotFoundComponent() {
+  const router = useRouter();
+
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <span className="text-3xl font-bold text-muted-foreground">404</span>
+          </div>
+          <CardTitle className="text-2xl">Página no encontrada</CardTitle>
+          <CardDescription>
+            Lo sentimos, la página que estás buscando no existe o ha sido movida.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Button asChild className="w-full">
+            <Link to="/">Ir al inicio</Link>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.history.back()}
+            className="w-full"
+          >
+            Volver atrás
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

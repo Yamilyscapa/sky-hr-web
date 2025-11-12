@@ -9,9 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as peopleEmployeesRouteImport } from './routes/(people)/employees'
-import { Route as organizationSettingsRouteImport } from './routes/(organization)/settings'
+import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
+import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as organizationGettingStartedRouteImport } from './routes/(organization)/getting-started'
 import { Route as organizationCreateOrganizationRouteImport } from './routes/(organization)/create-organization'
 import { Route as organizationAcceptInvitationRouteImport } from './routes/(organization)/accept-invitation'
@@ -22,21 +21,21 @@ import { Route as companyAttendanceRouteImport } from './routes/(company)/attend
 import { Route as companyAnnouncementsRouteImport } from './routes/(company)/announcements'
 import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
+import { Route as ProtectedpeopleEmployeesRouteImport } from './routes/_protected/(people)/employees'
+import { Route as ProtectedcompanySchedulesRouteImport } from './routes/_protected/(company)/schedules'
+import { Route as ProtectedcompanyPermissionsRouteImport } from './routes/_protected/(company)/permissions'
+import { Route as ProtectedcompanyLocationsRouteImport } from './routes/_protected/(company)/locations'
+import { Route as ProtectedcompanyAttendanceRouteImport } from './routes/_protected/(company)/attendance'
+import { Route as ProtectedcompanyAnnouncementsRouteImport } from './routes/_protected/(company)/announcements'
 
-const IndexRoute = IndexRouteImport.update({
+const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
+  id: '/_protected',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const peopleEmployeesRoute = peopleEmployeesRouteImport.update({
-  id: '/(people)/employees',
-  path: '/employees',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const organizationSettingsRoute = organizationSettingsRouteImport.update({
-  id: '/(organization)/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => ProtectedRouteRoute,
 } as any)
 const organizationGettingStartedRoute =
   organizationGettingStartedRouteImport.update({
@@ -91,9 +90,44 @@ const authLoginRoute = authLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProtectedpeopleEmployeesRoute =
+  ProtectedpeopleEmployeesRouteImport.update({
+    id: '/(people)/employees',
+    path: '/employees',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedcompanySchedulesRoute =
+  ProtectedcompanySchedulesRouteImport.update({
+    id: '/(company)/schedules',
+    path: '/schedules',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedcompanyPermissionsRoute =
+  ProtectedcompanyPermissionsRouteImport.update({
+    id: '/(company)/permissions',
+    path: '/permissions',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedcompanyLocationsRoute =
+  ProtectedcompanyLocationsRouteImport.update({
+    id: '/(company)/locations',
+    path: '/locations',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedcompanyAttendanceRoute =
+  ProtectedcompanyAttendanceRouteImport.update({
+    id: '/(company)/attendance',
+    path: '/attendance',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedcompanyAnnouncementsRoute =
+  ProtectedcompanyAnnouncementsRouteImport.update({
+    id: '/(company)/announcements',
+    path: '/announcements',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
   '/announcements': typeof companyAnnouncementsRoute
@@ -104,11 +138,15 @@ export interface FileRoutesByFullPath {
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
   '/getting-started': typeof organizationGettingStartedRoute
-  '/settings': typeof organizationSettingsRoute
-  '/employees': typeof peopleEmployeesRoute
+  '/': typeof ProtectedIndexRoute
+  '/announcements': typeof ProtectedcompanyAnnouncementsRoute
+  '/attendance': typeof ProtectedcompanyAttendanceRoute
+  '/locations': typeof ProtectedcompanyLocationsRoute
+  '/permissions': typeof ProtectedcompanyPermissionsRoute
+  '/schedules': typeof ProtectedcompanySchedulesRoute
+  '/employees': typeof ProtectedpeopleEmployeesRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
   '/announcements': typeof companyAnnouncementsRoute
@@ -119,12 +157,17 @@ export interface FileRoutesByTo {
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
   '/getting-started': typeof organizationGettingStartedRoute
-  '/settings': typeof organizationSettingsRoute
-  '/employees': typeof peopleEmployeesRoute
+  '/': typeof ProtectedIndexRoute
+  '/announcements': typeof ProtectedcompanyAnnouncementsRoute
+  '/attendance': typeof ProtectedcompanyAttendanceRoute
+  '/locations': typeof ProtectedcompanyLocationsRoute
+  '/permissions': typeof ProtectedcompanyPermissionsRoute
+  '/schedules': typeof ProtectedcompanySchedulesRoute
+  '/employees': typeof ProtectedpeopleEmployeesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_protected': typeof ProtectedRouteRouteWithChildren
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/signup': typeof authSignupRoute
   '/(company)/announcements': typeof companyAnnouncementsRoute
@@ -135,18 +178,27 @@ export interface FileRoutesById {
   '/(organization)/accept-invitation': typeof organizationAcceptInvitationRoute
   '/(organization)/create-organization': typeof organizationCreateOrganizationRoute
   '/(organization)/getting-started': typeof organizationGettingStartedRoute
-  '/(organization)/settings': typeof organizationSettingsRoute
-  '/(people)/employees': typeof peopleEmployeesRoute
+  '/_protected/': typeof ProtectedIndexRoute
+  '/_protected/(company)/announcements': typeof ProtectedcompanyAnnouncementsRoute
+  '/_protected/(company)/attendance': typeof ProtectedcompanyAttendanceRoute
+  '/_protected/(company)/locations': typeof ProtectedcompanyLocationsRoute
+  '/_protected/(company)/permissions': typeof ProtectedcompanyPermissionsRoute
+  '/_protected/(company)/schedules': typeof ProtectedcompanySchedulesRoute
+  '/_protected/(people)/employees': typeof ProtectedpeopleEmployeesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/login'
     | '/signup'
+    | '/accept-invitation'
+    | '/create-organization'
+    | '/getting-started'
+    | '/'
     | '/announcements'
     | '/attendance'
     | '/locations'
+    | '/permissions'
     | '/schedules'
     | '/visitors'
     | '/accept-invitation'
@@ -156,12 +208,16 @@ export interface FileRouteTypes {
     | '/employees'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/login'
     | '/signup'
+    | '/accept-invitation'
+    | '/create-organization'
+    | '/getting-started'
+    | '/'
     | '/announcements'
     | '/attendance'
     | '/locations'
+    | '/permissions'
     | '/schedules'
     | '/visitors'
     | '/accept-invitation'
@@ -171,7 +227,7 @@ export interface FileRouteTypes {
     | '/employees'
   id:
     | '__root__'
-    | '/'
+    | '/_protected'
     | '/(auth)/login'
     | '/(auth)/signup'
     | '/(company)/announcements'
@@ -182,12 +238,17 @@ export interface FileRouteTypes {
     | '/(organization)/accept-invitation'
     | '/(organization)/create-organization'
     | '/(organization)/getting-started'
-    | '/(organization)/settings'
-    | '/(people)/employees'
+    | '/_protected/'
+    | '/_protected/(company)/announcements'
+    | '/_protected/(company)/attendance'
+    | '/_protected/(company)/locations'
+    | '/_protected/(company)/permissions'
+    | '/_protected/(company)/schedules'
+    | '/_protected/(people)/employees'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
   authLoginRoute: typeof authLoginRoute
   authSignupRoute: typeof authSignupRoute
   companyAnnouncementsRoute: typeof companyAnnouncementsRoute
@@ -198,32 +259,23 @@ export interface RootRouteChildren {
   organizationAcceptInvitationRoute: typeof organizationAcceptInvitationRoute
   organizationCreateOrganizationRoute: typeof organizationCreateOrganizationRoute
   organizationGettingStartedRoute: typeof organizationGettingStartedRoute
-  organizationSettingsRoute: typeof organizationSettingsRoute
-  peopleEmployeesRoute: typeof peopleEmployeesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_protected': {
+      id: '/_protected'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof ProtectedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_protected/': {
+      id: '/_protected/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(people)/employees': {
-      id: '/(people)/employees'
-      path: '/employees'
-      fullPath: '/employees'
-      preLoaderRoute: typeof peopleEmployeesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(organization)/settings': {
-      id: '/(organization)/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof organizationSettingsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof ProtectedIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
     }
     '/(organization)/getting-started': {
       id: '/(organization)/getting-started'
@@ -295,11 +347,77 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected/(people)/employees': {
+      id: '/_protected/(people)/employees'
+      path: '/employees'
+      fullPath: '/employees'
+      preLoaderRoute: typeof ProtectedpeopleEmployeesRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/(company)/schedules': {
+      id: '/_protected/(company)/schedules'
+      path: '/schedules'
+      fullPath: '/schedules'
+      preLoaderRoute: typeof ProtectedcompanySchedulesRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/(company)/permissions': {
+      id: '/_protected/(company)/permissions'
+      path: '/permissions'
+      fullPath: '/permissions'
+      preLoaderRoute: typeof ProtectedcompanyPermissionsRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/(company)/locations': {
+      id: '/_protected/(company)/locations'
+      path: '/locations'
+      fullPath: '/locations'
+      preLoaderRoute: typeof ProtectedcompanyLocationsRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/(company)/attendance': {
+      id: '/_protected/(company)/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof ProtectedcompanyAttendanceRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/(company)/announcements': {
+      id: '/_protected/(company)/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof ProtectedcompanyAnnouncementsRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
   }
 }
 
+interface ProtectedRouteRouteChildren {
+  ProtectedIndexRoute: typeof ProtectedIndexRoute
+  ProtectedcompanyAnnouncementsRoute: typeof ProtectedcompanyAnnouncementsRoute
+  ProtectedcompanyAttendanceRoute: typeof ProtectedcompanyAttendanceRoute
+  ProtectedcompanyLocationsRoute: typeof ProtectedcompanyLocationsRoute
+  ProtectedcompanyPermissionsRoute: typeof ProtectedcompanyPermissionsRoute
+  ProtectedcompanySchedulesRoute: typeof ProtectedcompanySchedulesRoute
+  ProtectedpeopleEmployeesRoute: typeof ProtectedpeopleEmployeesRoute
+}
+
+const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
+  ProtectedIndexRoute: ProtectedIndexRoute,
+  ProtectedcompanyAnnouncementsRoute: ProtectedcompanyAnnouncementsRoute,
+  ProtectedcompanyAttendanceRoute: ProtectedcompanyAttendanceRoute,
+  ProtectedcompanyLocationsRoute: ProtectedcompanyLocationsRoute,
+  ProtectedcompanyPermissionsRoute: ProtectedcompanyPermissionsRoute,
+  ProtectedcompanySchedulesRoute: ProtectedcompanySchedulesRoute,
+  ProtectedpeopleEmployeesRoute: ProtectedpeopleEmployeesRoute,
+}
+
+const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
+  ProtectedRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
   authLoginRoute: authLoginRoute,
   authSignupRoute: authSignupRoute,
   companyAnnouncementsRoute: companyAnnouncementsRoute,
@@ -310,8 +428,6 @@ const rootRouteChildren: RootRouteChildren = {
   organizationAcceptInvitationRoute: organizationAcceptInvitationRoute,
   organizationCreateOrganizationRoute: organizationCreateOrganizationRoute,
   organizationGettingStartedRoute: organizationGettingStartedRoute,
-  organizationSettingsRoute: organizationSettingsRoute,
-  peopleEmployeesRoute: peopleEmployeesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

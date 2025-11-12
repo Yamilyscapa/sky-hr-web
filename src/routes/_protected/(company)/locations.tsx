@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
@@ -31,9 +31,13 @@ import {
   Copy,
 } from "lucide-react";
 import API from "@/api";
+import { notMemberRoute } from "@/server/auth.server";
 
-export const Route = createFileRoute("/(company)/locations")({
+export const Route = createFileRoute("/_protected/(company)/locations")({
   component: RouteComponent,
+  beforeLoad: async () => {
+    await notMemberRoute();
+  },
 });
 
 type Location = {

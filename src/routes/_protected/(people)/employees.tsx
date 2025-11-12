@@ -917,7 +917,7 @@ const createColumns = ({
   },
 ];
 
-export const Route = createFileRoute("/(people)/employees")({
+export const Route = createFileRoute("/_protected/(people)/employees")({
   component: RouteComponent,
 
   beforeLoad: async () => {

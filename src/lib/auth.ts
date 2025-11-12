@@ -14,6 +14,7 @@ async function setActiveOrganization() {
     }
   } catch (orgError) {
     console.error("Failed to set active organization:", orgError);
+    // Don't rethrow - allow login to proceed even if setActive fails
   }
 }
 
@@ -31,7 +32,10 @@ export const signUp = async (email: string, password: string, name: string) => {
       },
       onSuccess: async () => {
         console.log("Sign up successful");
-        await setActiveOrganization();
+        // Don't await - let it run in background
+        setActiveOrganization().catch(err => 
+          console.error("Background setActiveOrganization failed:", err)
+        );
       },
       onError: () => {
         console.log("Sign up failed");
@@ -56,7 +60,10 @@ export const login = async (email: string, password: string) => {
       },
       onSuccess: async () => {
         console.log("Login successful");
-        await setActiveOrganization();
+        // Don't await - let it run in background
+        setActiveOrganization().catch(err => 
+          console.error("Background setActiveOrganization failed:", err)
+        );
       },
       onError: () => {
         console.log("Login failed");
