@@ -7,6 +7,9 @@ import { nitro } from "nitro/vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  // VITE_API_URL is used for both API and Better Auth endpoints
+  // Better Auth is mounted at /auth on the same API server
+  // So VITE_API_URL should match BETTER_AUTH_URL on the backend
   const apiUrl = env.VITE_API_URL || "http://localhost:8080";
 
   return {
@@ -29,6 +32,12 @@ export default defineConfig(({ mode }) => {
           target: apiUrl,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ""),
+          secure: true,
+        },
+        // Proxy auth endpoints (Better Auth)
+        "/auth": {
+          target: apiUrl,
+          changeOrigin: true,
           secure: true,
         },
         // Also proxy common API paths directly
@@ -65,18 +74,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      rollupOptions: {
-        external: (id) => {
-          // Externalize Node.js built-in modules for browser builds
-          if (id.startsWith("node:") || id === "async_hooks") {
-            return true;
-          }
-          return false;
-        },
-      },
+      // TanStack Start with Nitro handles client/server separation automatically
+      // No need to externalize Node.js built-ins as they're not used in client code
     },
-    optimizeDeps: {
-      exclude: ["better-auth"],
-    },
+    // optimizeDeps.exclude for better-auth removed - test if needed
+    // If you encounter SSR or cookie issues in dev, add back: exclude: ["better-auth"]
   };
 });

@@ -1,8 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Outlet } from '@tanstack/react-router'
 import { isAuthenticated, notMemberRoute } from '@/server/auth.server'
-import { getOrganization, getUserOrganizations } from '@/server/organization.server'
-import { authClient } from '@/lib/auth-client'
+import { getOrganization, getUserOrganizations, setFirstOrganizationActive } from '@/server/organization.server'
 
 export const Route = createFileRoute('/_protected')({
   component: RouteComponent,
@@ -21,24 +20,25 @@ export const Route = createFileRoute('/_protected')({
       });
     }
 
-    if (!organization?.data) {
-      throw redirect({ to: "/getting-started" });
-    }
-
+    // Check if user has an active organization
     if (!organization?.data) {
       const organizations = await getUserOrganizations();
 
-      // If user has organizations, set the first one as active
+      // If user has organizations, try to set the first one as active
       if (organizations?.data && organizations.data.length > 0) {
-        const org = organizations.data[0];
-        if (org.id) {
-          await authClient.organization.setActive({
-            organizationId: org.id,
-          });
+        try {
+          await setFirstOrganizationActive();
+          // Successfully set active organization - redirect to home to reload with org context
+          throw redirect({ to: "/" });
+        } catch (error) {
+          console.error("Failed to set active organization in beforeLoad:", error);
+          // Failed to set active - redirect to getting-started
+          throw redirect({ to: "/getting-started" });
         }
-      } else {
-        throw redirect({ to: "/getting-started" });
       }
+      
+      // No organizations at all - redirect to getting started to create one
+      throw redirect({ to: "/getting-started" });
     }
 
     if (isMember) {

@@ -53,9 +53,14 @@ function RouteComponent() {
       if (result.data) {
         const orgId = result.data.id;
         if (orgId) {
-          await authClient.organization.setActive({
-            organizationId: orgId,
-          });
+          try {
+            await authClient.organization.setActive({
+              organizationId: orgId,
+            });
+          } catch (error) {
+            console.error("Failed to set active after create:", error);
+            // Continue to navigate - org was created successfully
+          }
         }
 
         await navigate({ to: "/" });
@@ -68,10 +73,13 @@ function RouteComponent() {
             listResult.data[0];
 
           if (existingOrg) {
-            const setActiveResult = await authClient.organization.setActive({
-              organizationId: existingOrg.id,
-            });
-            console.log("Set active organization:", setActiveResult);
+            try {
+              await authClient.organization.setActive({
+                organizationId: existingOrg.id,
+              });
+            } catch (error) {
+              console.error("Failed to set active for existing org:", error);
+            }
             await navigate({ to: "/" });
           }
         } else {
