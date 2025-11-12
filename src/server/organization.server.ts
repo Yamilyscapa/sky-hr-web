@@ -42,3 +42,33 @@ export const getUserInvitations = createServerFn({
 
   return invitations;
 });
+
+export const setFirstOrganizationActive = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  const request = getRequest();
+  if (!request) {
+    throw new Error("Request context not available.");
+  }
+  const { headers } = request;
+
+  // Get user's organizations
+  const organizations = await authClient.organization.list({
+    fetchOptions: { headers },
+  });
+
+  // Set the first organization as active if available
+  if (organizations.data && organizations.data.length > 0) {
+    const firstOrg = organizations.data[0];
+    if (firstOrg.id) {
+      const result = await authClient.organization.setActive({
+        organizationId: firstOrg.id,
+        fetchOptions: { headers },
+      });
+      return result;
+    }
+  }
+
+  return null;
+});
+
