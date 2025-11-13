@@ -20,11 +20,11 @@ import API, { type ApiVisitor, type VisitorStatus, type PaginationMeta, extractL
 
 function getOrgId() {
   try {
-    const keys = ['activeOrganizationId','organizationId','orgId','active_org_id'];
+    const keys = ['activeOrganizationId', 'organizationId', 'orgId', 'active_org_id'];
     for (const k of keys) { const v = localStorage.getItem(k); if (v) return v; }
     // @ts-expect-error
     if (typeof window !== 'undefined' && window.__ORG_ID__) return window.__ORG_ID__ as string;
-  } catch {}
+  } catch { }
   return undefined;
 }
 
@@ -141,11 +141,11 @@ function CreateVisitorDialog({
         <form className="space-y-4" onSubmit={handleSubmit}>
           <Field>
             <Label htmlFor="visitor-name">Nombre</Label>
-            <Input 
+            <Input
               id="visitor-name"
-              name="name" 
-              placeholder="Nombre completo del visitante" 
-              required 
+              name="name"
+              placeholder="Nombre completo del visitante"
+              required
             />
           </Field>
           <Field>
@@ -194,27 +194,27 @@ function CreateVisitorDialog({
           <div className="grid grid-cols-2 gap-4">
             <Field>
               <Label htmlFor="visitor-entry">Fecha y hora de entrada</Label>
-              <Input 
+              <Input
                 id="visitor-entry"
-                name="entryDate" 
-                type="datetime-local" 
-                required 
+                name="entryDate"
+                type="datetime-local"
+                required
               />
             </Field>
             <Field>
               <Label htmlFor="visitor-exit">Fecha y hora de salida</Label>
-              <Input 
+              <Input
                 id="visitor-exit"
-                name="exitDate" 
-                type="datetime-local" 
-                required 
+                name="exitDate"
+                type="datetime-local"
+                required
               />
             </Field>
           </div>
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
             >
@@ -242,8 +242,8 @@ function AccessAreasDialog({
 }) {
   if (!visitor) return null;
 
-  const accessAreas = Array.isArray(visitor.accessAreas) 
-    ? visitor.accessAreas 
+  const accessAreas = Array.isArray(visitor.accessAreas)
+    ? visitor.accessAreas
     : (visitor.accessAreas ? [visitor.accessAreas] : []);
 
   return (
@@ -312,12 +312,12 @@ function VisitorsPage() {
         pageSize,
         organizationId: orgId,
       });
-      
+
       const rows = extractListData<ApiVisitor>(response).map((r: any) => ({
         id: r.id,
         name: r.name,
-        accessAreas: Array.isArray(r.access_areas) 
-          ? r.access_areas 
+        accessAreas: Array.isArray(r.access_areas)
+          ? r.access_areas
           : (Array.isArray(r.accessAreas) ? r.accessAreas : (r.accessAreas ? [r.accessAreas] : [])),
         entryDate: r.entry_date ?? r.entryDate,
         exitDate: r.exit_date ?? r.exitDate,
@@ -325,9 +325,9 @@ function VisitorsPage() {
         approvedByUserId: r.approved_by_user_id ?? r.approvedByUserId,
         approvedAt: r.approved_at ?? r.approvedAt,
       })) as Visitor[];
-      
+
       setData(rows);
-      
+
       // Handle pagination metadata
       if (response.pagination) {
         const total = response.pagination.total ?? rows.length;
@@ -357,8 +357,8 @@ function VisitorsPage() {
     }
   }
 
-  useEffect(() => { 
-    fetchList(); 
+  useEffect(() => {
+    fetchList();
   }, [status, debouncedSearchTerm, page]);
 
   // Reset page when status changes
@@ -457,9 +457,9 @@ function VisitorsPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Buscar por nombre o acceso..." 
-                  value={searchTerm} 
+                <Input
+                  placeholder="Buscar por nombre o acceso..."
+                  value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 w-full sm:w-64"
                 />
@@ -486,8 +486,8 @@ function VisitorsPage() {
             </div>
           ) : data.length === 0 ? (
             <div className="text-sm text-muted-foreground py-6 text-center">
-              {debouncedSearchTerm || status !== "all" 
-                ? "No se encontraron visitantes con los filtros aplicados." 
+              {debouncedSearchTerm || status !== "all"
+                ? "No se encontraron visitantes con los filtros aplicados."
                 : "No hay visitantes registrados."}
             </div>
           ) : (
@@ -659,121 +659,121 @@ const createColumns = ({
   onReject,
   onCancel,
 }: ColumnHandlers): ColumnDef<Visitor>[] => [
-  {
-    header: ({ column }) => {
-      return (
-        <button
-          className="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          <span>Nombre</span>
-          <ArrowUpDown className="h-4 w-4" />
-        </button>
-      );
+    {
+      header: ({ column }) => {
+        return (
+          <button
+            className="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            <span>Nombre</span>
+            <ArrowUpDown className="h-4 w-4" />
+          </button>
+        );
+      },
+      accessorKey: "name",
+      cell: ({ row }) => row.original.name,
+      enableSorting: true,
     },
-    accessorKey: "name",
-    cell: ({ row }) => row.original.name,
-    enableSorting: true,
-  },
-  {
-    header: "Estado",
-    accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
-  },
-  {
-    header: ({ column }) => {
-      return (
-        <button
-          className="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          <span>Entrada</span>
-          <ArrowUpDown className="h-4 w-4" />
-        </button>
-      );
+    {
+      header: "Estado",
+      accessorKey: "status",
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
-    accessorKey: "entryDate",
-    cell: ({ row }) => {
-      const date = new Date(row.original.entryDate);
-      return (
-        <span className="text-sm">
-          {date.toLocaleString("es-ES", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          })}
-        </span>
-      );
+    {
+      header: ({ column }) => {
+        return (
+          <button
+            className="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            <span>Entrada</span>
+            <ArrowUpDown className="h-4 w-4" />
+          </button>
+        );
+      },
+      accessorKey: "entryDate",
+      cell: ({ row }) => {
+        const date = new Date(row.original.entryDate);
+        return (
+          <span className="text-sm">
+            {date.toLocaleString("es-ES", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })}
+          </span>
+        );
+      },
+      enableSorting: true,
     },
-    enableSorting: true,
-  },
-  {
-    header: ({ column }) => {
-      return (
-        <button
-          className="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          <span>Salida</span>
-          <ArrowUpDown className="h-4 w-4" />
-        </button>
-      );
+    {
+      header: ({ column }) => {
+        return (
+          <button
+            className="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            <span>Salida</span>
+            <ArrowUpDown className="h-4 w-4" />
+          </button>
+        );
+      },
+      accessorKey: "exitDate",
+      cell: ({ row }) => {
+        const date = new Date(row.original.exitDate);
+        return (
+          <span className="text-sm">
+            {date.toLocaleString("es-ES", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })}
+          </span>
+        );
+      },
+      enableSorting: true,
     },
-    accessorKey: "exitDate",
-    cell: ({ row }) => {
-      const date = new Date(row.original.exitDate);
-      return (
-        <span className="text-sm">
-          {date.toLocaleString("es-ES", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          })}
-        </span>
-      );
+    {
+      header: "Accesos",
+      accessorKey: "accessAreas",
+      cell: ({ row }) => {
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onViewAccessAreas(row.original)}
+            className="h-8 text-xs"
+          >
+            Ver accesos
+          </Button>
+        );
+      },
     },
-    enableSorting: true,
-  },
-  {
-    header: "Accesos",
-    accessorKey: "accessAreas",
-    cell: ({ row }) => {
-      return (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onViewAccessAreas(row.original)}
-          className="h-8 text-xs"
-        >
-          Ver accesos
-        </Button>
-      );
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        return (
+          <ActionsCell
+            visitor={row.original}
+            onView={onView}
+            onApprove={onApprove}
+            onReject={onReject}
+            onCancel={onCancel}
+          />
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
     },
-  },
-  {
-    id: "actions",
-    header: "",
-    cell: ({ row }) => {
-      return (
-        <ActionsCell
-          visitor={row.original}
-          onView={onView}
-          onApprove={onApprove}
-          onReject={onReject}
-          onCancel={onCancel}
-        />
-      );
-    },
-    enableSorting: false,
-    enableHiding: false,
-  },
-];
+  ];
 
 function VisitorDetailsDialog({
   visitor,
@@ -784,8 +784,8 @@ function VisitorDetailsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const accessAreas = Array.isArray(visitor.accessAreas) 
-    ? visitor.accessAreas 
+  const accessAreas = Array.isArray(visitor.accessAreas)
+    ? visitor.accessAreas
     : (visitor.accessAreas ? [visitor.accessAreas] : []);
 
   return (

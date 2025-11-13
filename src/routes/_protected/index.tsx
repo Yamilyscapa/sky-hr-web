@@ -69,7 +69,8 @@ import {
   AlertCircle,
   BarChart3,
   ShoppingCart,
-  Heart
+  Heart,
+  Download
 } from "lucide-react";
 import API, { PaginationMeta, extractListData } from "@/api";
 import { useQuery } from "@tanstack/react-query";
@@ -358,7 +359,7 @@ function App() {
   });
 
   // Obtener eventos del mes anterior para comparación
-  const { data: previousMonthEvents } = useQuery({
+  const { data: previousMonthEvents, isLoading: isLoadingPreviousMonth } = useQuery({
     queryKey: ["attendance-previous-month", organization?.id, previousMonthValue],
     enabled: !!organization?.id,
     queryFn: async () => {
@@ -371,7 +372,7 @@ function App() {
   });
 
   // Obtener eventos de los últimos 3 meses para tendencias
-  const { data: quarterlyData } = useQuery({
+  const { data: quarterlyData, isLoading: isLoadingQuarterly } = useQuery({
     queryKey: ["attendance-quarterly", organization?.id, selectedMonthValue],
     enabled: !!organization?.id,
     queryFn: async () => {
@@ -527,25 +528,140 @@ function App() {
   }
 
   // Verificar si hay datos disponibles para mostrar estadísticas
-  const hasNoData = currentEvents.length === 0 && geofenceList.length === 0 && totalEmployees === 0;
-  
-  // TEMPORARY: Force no data state to see the screen
-  // TODO: Remove this line after testing
-  const forceNoData = true;
+  // Mostrar "no data" si no hay eventos de asistencia para el mes seleccionado
+  const hasNoData = currentEvents.length === 0;
 
-  if (hasNoData || forceNoData) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
-          <h2 className="text-2xl font-semibold">Aún no hay información disponible</h2>
-          <p className="text-muted-foreground max-w-md">
-            No hay datos suficientes para mostrar estadísticas. Una vez que comiences a registrar asistencia y configurar ubicaciones, aquí verás un resumen completo.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Función para exportar estadísticas a CSV
+  const handleExportToCsv = () => {
+    if (hasNoData) {
+      alert("No hay datos disponibles para exportar.");
+      return;
+    }
+
+    const csvRows: string[] = [];
+
+    // Helper para escapar valores CSV
+    const escapeCsv = (value: any): string => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    // Encabezado del documento
+    csvRows.push("ESTADÍSTICAS GENERALES - SKYHR");
+    csvRows.push(`Mes: ${selectedMonthLabel}`);
+    csvRows.push(`Fecha de exportación: ${new Date().toLocaleString("es-ES")}`);
+    csvRows.push("");
+
+    // Sección 1: Resumen General
+    csvRows.push("=== RESUMEN GENERAL ===");
+    csvRows.push("Métrica,Valor");
+    csvRows.push(`Asistencia Global,${globalAttendance.toFixed(1)}%`);
+    csvRows.push(`Ausentismo Promedio,${globalAbsenteeism.toFixed(1)}%`);
+    csvRows.push(`Total de Empleados,${totalEmployees}`);
+    csvRows.push(`Total de Eventos,${currentEvents.length}`);
+    csvRows.push(`Sucursales Activas,${locationStats.length}`);
+    csvRows.push(`Eventos Marcados,${flaggedCount}`);
+    csvRows.push("");
+
+    // Sección 2: Distribución por Estado
+    csvRows.push("=== DISTRIBUCIÓN POR ESTADO ===");
+    csvRows.push("Estado,Cantidad,Porcentaje");
+    csvRows.push(`A Tiempo,${statusStats.onTime},${currentEvents.length > 0 ? ((statusStats.onTime / currentEvents.length) * 100).toFixed(1) : 0}%`);
+    csvRows.push(`Tardanzas,${statusStats.late},${currentEvents.length > 0 ? ((statusStats.late / currentEvents.length) * 100).toFixed(1) : 0}%`);
+    csvRows.push(`Entrada Temprana,${statusStats.early},${currentEvents.length > 0 ? ((statusStats.early / currentEvents.length) * 100).toFixed(1) : 0}%`);
+    csvRows.push(`Ausencias,${statusStats.absent},${currentEvents.length > 0 ? ((statusStats.absent / currentEvents.length) * 100).toFixed(1) : 0}%`);
+    csvRows.push(`Fuera de Zona,${statusStats.outOfBounds},${currentEvents.length > 0 ? ((statusStats.outOfBounds / currentEvents.length) * 100).toFixed(1) : 0}%`);
+    csvRows.push("");
+
+    // Sección 3: Estadísticas por Ubicación
+    csvRows.push("=== ESTADÍSTICAS POR UBICACIÓN ===");
+    csvRows.push("Ubicación,Asistencia (%),Empleados,Total Eventos,A Tiempo,Tarde,Ausente,Estado");
+    locationStats.forEach((location) => {
+      csvRows.push(
+        [
+          escapeCsv(location.name),
+          location.attendance.toFixed(1),
+          location.employees,
+          location.totalEvents,
+          location.onTime,
+          location.late,
+          location.absent,
+          location.status === "excellent" ? "Excelente" : location.status === "acceptable" ? "Aceptable" : "Crítico"
+        ].join(",")
+      );
+    });
+    csvRows.push("");
+
+    // Sección 4: Tendencias Trimestrales
+    if (quarterlyTrends.length > 0) {
+      csvRows.push("=== TENDENCIAS TRIMESTRALES ===");
+      csvRows.push("Mes,Asistencia (%),Total Eventos");
+      quarterlyTrends.forEach((month) => {
+        csvRows.push(
+          [
+            escapeCsv(month.month),
+            month.attendance.toFixed(1),
+            month.events.length
+          ].join(",")
+        );
+      });
+      csvRows.push("");
+    }
+
+    // Sección 5: Verificación Biométrica
+    csvRows.push("=== VERIFICACIÓN BIOMÉTRICA ===");
+    csvRows.push("Métrica,Valor");
+    csvRows.push(`Confianza Promedio,${avgFaceConfidence.toFixed(1)}%`);
+    csvRows.push(`Eventos Verificados,${currentEvents.filter((e: AttendanceEvent) => e.is_verified).length}`);
+    csvRows.push(`Eventos Sin Verificar,${currentEvents.filter((e: AttendanceEvent) => !e.is_verified).length}`);
+    csvRows.push(`Total Verificaciones Biométricas,${eventsWithFace.length}`);
+    csvRows.push("");
+
+    // Sección 6: Validación de Geofence
+    csvRows.push("=== VALIDACIÓN DE UBICACIÓN ===");
+    csvRows.push("Métrica,Valor,Porcentaje");
+    csvRows.push(`Dentro del Geofence,${withinGeofence},${currentEvents.length > 0 ? ((withinGeofence / currentEvents.length) * 100).toFixed(1) : 0}%`);
+    csvRows.push(`Fuera del Geofence,${outsideGeofence},${currentEvents.length > 0 ? ((outsideGeofence / currentEvents.length) * 100).toFixed(1) : 0}%`);
+    csvRows.push("");
+
+    // Sección 7: Eventos Marcados (Flagged)
+    if (flaggedCount > 0) {
+      csvRows.push("=== EVENTOS MARCADOS ===");
+      csvRows.push("Tipo,Cantidad");
+      csvRows.push(`Tardanzas,${flaggedStats.late ?? 0}`);
+      csvRows.push(`Ausencias,${flaggedStats.absent ?? 0}`);
+      csvRows.push(`Fuera de Zona,${flaggedStats.out_of_bounds ?? 0}`);
+      csvRows.push("");
+    }
+
+    // Sección 8: Comparación con Mes Anterior
+    if (!isLoadingPreviousMonth && previousEvents.length > 0) {
+      csvRows.push("=== COMPARACIÓN CON MES ANTERIOR ===");
+      csvRows.push("Métrica,Mes Actual,Mes Anterior,Diferencia");
+      csvRows.push(
+        [
+          "Asistencia Global",
+          `${globalAttendance.toFixed(1)}%`,
+          `${previousAttendance.toFixed(1)}%`,
+          `${trend >= 0 ? "+" : ""}${trend.toFixed(1)}%`
+        ].join(",")
+      );
+      csvRows.push("");
+    }
+
+    // Crear y descargar el archivo CSV
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `estadisticas-${selectedMonthValue}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6 p-6 pb-12">
@@ -558,18 +674,43 @@ function App() {
             <span className="font-medium text-foreground">{selectedMonthLabel}</span>
           </p>
         </div>
-        <MonthPaginationControls
-          selectedValue={selectedMonthValue}
-          options={monthOptions}
-          onPrevious={handlePreviousMonth}
-          onNext={handleNextMonth}
-          onSelect={handleSelectMonth}
-          disableNext={isNextMonthDisabled}
-        />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button
+            onClick={handleExportToCsv}
+            variant="outline"
+            disabled={hasNoData}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Exportar CSV
+          </Button>
+          <MonthPaginationControls
+            selectedValue={selectedMonthValue}
+            options={monthOptions}
+            onPrevious={handlePreviousMonth}
+            onNext={handleNextMonth}
+            onSelect={handleSelectMonth}
+            disableNext={isNextMonthDisabled}
+          />
+        </div>
       </div>
 
-      {/* Alertas Críticas */}
-      {criticalLocations.length > 0 && (
+      {/* Mensaje cuando no hay datos para el mes seleccionado */}
+      {hasNoData && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Aún no hay información disponible</AlertTitle>
+          <AlertDescription>
+            No hay datos de asistencia para {selectedMonthLabel}.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Contenido de estadísticas - solo mostrar si hay datos */}
+      {!hasNoData && (
+        <>
+          {/* Alertas Críticas */}
+          {criticalLocations.length > 0 && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>¡Alertas de Asistencia!</AlertTitle>
@@ -599,10 +740,16 @@ function App() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{globalAttendance.toFixed(1)}%</div>
-            <div className={`flex items-center text-xs ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {trend >= 0 ? <TrendingUp className="mr-1 h-3 w-3" /> : <TrendingDown className="mr-1 h-3 w-3" />}
-              {trend >= 0 ? '+' : ''}{trend.toFixed(1)}% vs mes anterior
-            </div>
+            {!isLoadingPreviousMonth && previousEvents.length === 0 ? (
+              <div className="flex items-center text-xs text-muted-foreground">
+                Sin datos del mes anterior
+              </div>
+            ) : (
+              <div className={`flex items-center text-xs ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {trend >= 0 ? <TrendingUp className="mr-1 h-3 w-3" /> : <TrendingDown className="mr-1 h-3 w-3" />}
+                {trend >= 0 ? '+' : ''}{trend.toFixed(1)}% vs mes anterior
+              </div>
+            )}
             <Progress value={globalAttendance} className="mt-2" />
           </CardContent>
         </Card>
@@ -783,9 +930,13 @@ function App() {
                 <CardDescription>Evolución de los últimos 3 meses</CardDescription>
               </CardHeader>
               <CardContent>
-                {quarterlyTrends.length === 0 ? (
+                {isLoadingQuarterly ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Cargando datos trimestrales...
+                  </div>
+                ) : quarterlyTrends.length === 0 || quarterlyTrends.every(m => m.events.length === 0) ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Aún no hay información disponible para los meses anteriores
                   </div>
                 ) : (
                   <>
@@ -1503,6 +1654,8 @@ function App() {
           </Card>
         </TabsContent>
       </Tabs>
+        </>
+      )}
     </div>
   );
 }
