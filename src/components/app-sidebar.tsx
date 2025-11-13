@@ -39,7 +39,7 @@ const data = {
         },
         {
           title: "Visitantes",
-          url: "#",
+          url: "/visitors",
         },
         {
           title: "Gestionar asistencia",

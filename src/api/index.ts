@@ -57,6 +57,27 @@ export type ApiPermission = {
   updatedAt: string;
 };
 
+export type VisitorStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export type ApiVisitor = {
+  id: string;
+  name: string;
+  accessAreas: string[];
+  entryDate: string;
+  exitDate: string;
+  status: VisitorStatus;
+  approvedByUserId?: string | null;
+  approvedAt?: string | null;
+};
+
+export type VisitorPayload = {
+  name: string;
+  accessAreas: string[];
+  entryDate: string;
+  exitDate: string;
+  approveNow?: boolean;
+};
+
 export function extractListData<T = any>(
   response?: PaginatedListResponse<T> | any,
 ): T[] {
@@ -136,41 +157,58 @@ export class API {
   }
 
   // Generic API methods
-  public async get(url: string) {
+  public async get(url: string, headers?: Record<string, string>) {
+    const fetchHeaders: Record<string, string> = {};
+    if (headers) {
+      Object.assign(fetchHeaders, headers);
+    }
     return await fetch(`${this.baseUrl}${url}`, {
       method: "GET",
       credentials: "include",
+      headers: Object.keys(fetchHeaders).length > 0 ? fetchHeaders : undefined,
     });
   }
 
-  public async post(url: string, data: any) {
+  public async post(url: string, data: any, headers?: Record<string, string>) {
+    const fetchHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (headers) {
+      Object.assign(fetchHeaders, headers);
+    }
     return await fetch(`${this.baseUrl}${url}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: fetchHeaders,
       credentials: "include",
       body: JSON.stringify(data),
     });
   }
 
-  public async put(url: string, data: any) {
+  public async put(url: string, data: any, headers?: Record<string, string>) {
+    const fetchHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (headers) {
+      Object.assign(fetchHeaders, headers);
+    }
     return await fetch(`${this.baseUrl}${url}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: fetchHeaders,
       credentials: "include",
       body: JSON.stringify(data),
     });
   }
 
-  public async delete(url: string) {
+  public async delete(url: string, headers?: Record<string, string>) {
+    const fetchHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (headers) {
+      Object.assign(fetchHeaders, headers);
+    }
     return await fetch(`${this.baseUrl}${url}`, {
       method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: Object.keys(fetchHeaders).length > 0 ? fetchHeaders : undefined,
       credentials: "include",
     });
   }
@@ -508,6 +546,86 @@ export class API {
       body: formData,
     });
     return await this.handleResponse<SingleRecordResponse<ApiPermission>>(response);
+  }
+
+  // Visitors API methods
+  public async getVisitors(params?: {
+    status?: VisitorStatus | "all";
+    q?: string;
+    page?: number;
+    pageSize?: number;
+    organizationId?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    const finalParams = {
+      status: params?.status && params.status !== "all" ? params.status : undefined,
+      q: params?.q,
+      page: params?.page,
+      pageSize: params?.pageSize,
+    };
+
+    Object.entries(finalParams).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      searchParams.append(key, String(value));
+    });
+
+    const queryString = searchParams.toString();
+    const url = `/visitors${queryString ? `?${queryString}` : ""}`;
+    
+    const headers: Record<string, string> = {};
+    if (params?.organizationId) {
+      headers["x-organization-id"] = params.organizationId;
+    }
+    
+    const response = await this.get(url, Object.keys(headers).length > 0 ? headers : undefined);
+    return await this.handleResponse<PaginatedListResponse<ApiVisitor>>(response);
+  }
+
+  public async getVisitor(id: string, organizationId?: string) {
+    const headers: Record<string, string> = {};
+    if (organizationId) {
+      headers["x-organization-id"] = organizationId;
+    }
+    const response = await this.get(`/visitors/${id}`, Object.keys(headers).length > 0 ? headers : undefined);
+    return await this.handleResponse<SingleRecordResponse<ApiVisitor>>(response);
+  }
+
+  public async createVisitor(data: VisitorPayload, organizationId?: string) {
+    const headers: Record<string, string> = {};
+    if (organizationId) {
+      headers["x-organization-id"] = organizationId;
+    }
+    const response = await this.post(`/visitors`, data, Object.keys(headers).length > 0 ? headers : undefined);
+    return await this.handleResponse<SingleRecordResponse<ApiVisitor>>(response);
+  }
+
+  public async approveVisitor(id: string, organizationId?: string) {
+    const headers: Record<string, string> = {};
+    if (organizationId) {
+      headers["x-organization-id"] = organizationId;
+    }
+    const response = await this.post(`/visitors/${id}/approve`, {}, Object.keys(headers).length > 0 ? headers : undefined);
+    return await this.handleResponse<SingleRecordResponse<ApiVisitor>>(response);
+  }
+
+  public async rejectVisitor(id: string, organizationId?: string) {
+    const headers: Record<string, string> = {};
+    if (organizationId) {
+      headers["x-organization-id"] = organizationId;
+    }
+    const response = await this.post(`/visitors/${id}/reject`, {}, Object.keys(headers).length > 0 ? headers : undefined);
+    return await this.handleResponse<SingleRecordResponse<ApiVisitor>>(response);
+  }
+
+  public async cancelVisitor(id: string, organizationId?: string) {
+    const headers: Record<string, string> = {};
+    if (organizationId) {
+      headers["x-organization-id"] = organizationId;
+    }
+    const response = await this.post(`/visitors/${id}/cancel`, {}, Object.keys(headers).length > 0 ? headers : undefined);
+    return await this.handleResponse<SingleRecordResponse<ApiVisitor>>(response);
   }
 }
 
