@@ -54,9 +54,9 @@ export function LoginForm({
 
       // Delay redirect to ensure cookie is set before navigation
       // This is especially important for cross-domain scenarios
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // After successful login, redirect based on context
+      
       if (inviteToken) {
         // If there's an invite token, go to accept invitation
         await handleAcceptInvitation(inviteToken);

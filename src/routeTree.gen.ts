@@ -15,10 +15,6 @@ import { Route as organizationGettingStartedRouteImport } from './routes/(organi
 import { Route as organizationCreateOrganizationRouteImport } from './routes/(organization)/create-organization'
 import { Route as organizationAcceptInvitationRouteImport } from './routes/(organization)/accept-invitation'
 import { Route as companyVisitorsRouteImport } from './routes/(company)/visitors'
-import { Route as companySchedulesRouteImport } from './routes/(company)/schedules'
-import { Route as companyLocationsRouteImport } from './routes/(company)/locations'
-import { Route as companyAttendanceRouteImport } from './routes/(company)/attendance'
-import { Route as companyAnnouncementsRouteImport } from './routes/(company)/announcements'
 import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as ProtectedpeopleEmployeesRouteImport } from './routes/_protected/(people)/employees'
@@ -58,26 +54,6 @@ const organizationAcceptInvitationRoute =
 const companyVisitorsRoute = companyVisitorsRouteImport.update({
   id: '/(company)/visitors',
   path: '/visitors',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const companySchedulesRoute = companySchedulesRouteImport.update({
-  id: '/(company)/schedules',
-  path: '/schedules',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const companyLocationsRoute = companyLocationsRouteImport.update({
-  id: '/(company)/locations',
-  path: '/locations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const companyAttendanceRoute = companyAttendanceRouteImport.update({
-  id: '/(company)/attendance',
-  path: '/attendance',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const companyAnnouncementsRoute = companyAnnouncementsRouteImport.update({
-  id: '/(company)/announcements',
-  path: '/announcements',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authSignupRoute = authSignupRouteImport.update({
@@ -130,10 +106,6 @@ const ProtectedcompanyAnnouncementsRoute =
 export interface FileRoutesByFullPath {
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
-  '/announcements': typeof companyAnnouncementsRoute
-  '/attendance': typeof companyAttendanceRoute
-  '/locations': typeof companyLocationsRoute
-  '/schedules': typeof companySchedulesRoute
   '/visitors': typeof companyVisitorsRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
@@ -149,10 +121,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
-  '/announcements': typeof companyAnnouncementsRoute
-  '/attendance': typeof companyAttendanceRoute
-  '/locations': typeof companyLocationsRoute
-  '/schedules': typeof companySchedulesRoute
   '/visitors': typeof companyVisitorsRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
@@ -170,10 +138,6 @@ export interface FileRoutesById {
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/signup': typeof authSignupRoute
-  '/(company)/announcements': typeof companyAnnouncementsRoute
-  '/(company)/attendance': typeof companyAttendanceRoute
-  '/(company)/locations': typeof companyLocationsRoute
-  '/(company)/schedules': typeof companySchedulesRoute
   '/(company)/visitors': typeof companyVisitorsRoute
   '/(organization)/accept-invitation': typeof organizationAcceptInvitationRoute
   '/(organization)/create-organization': typeof organizationCreateOrganizationRoute
@@ -191,6 +155,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/login'
     | '/signup'
+    | '/visitors'
     | '/accept-invitation'
     | '/create-organization'
     | '/getting-started'
@@ -200,16 +165,12 @@ export interface FileRouteTypes {
     | '/locations'
     | '/permissions'
     | '/schedules'
-    | '/visitors'
-    | '/accept-invitation'
-    | '/create-organization'
-    | '/getting-started'
-    | '/settings'
     | '/employees'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/signup'
+    | '/visitors'
     | '/accept-invitation'
     | '/create-organization'
     | '/getting-started'
@@ -219,21 +180,12 @@ export interface FileRouteTypes {
     | '/locations'
     | '/permissions'
     | '/schedules'
-    | '/visitors'
-    | '/accept-invitation'
-    | '/create-organization'
-    | '/getting-started'
-    | '/settings'
     | '/employees'
   id:
     | '__root__'
     | '/_protected'
     | '/(auth)/login'
     | '/(auth)/signup'
-    | '/(company)/announcements'
-    | '/(company)/attendance'
-    | '/(company)/locations'
-    | '/(company)/schedules'
     | '/(company)/visitors'
     | '/(organization)/accept-invitation'
     | '/(organization)/create-organization'
@@ -251,10 +203,6 @@ export interface RootRouteChildren {
   ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
   authLoginRoute: typeof authLoginRoute
   authSignupRoute: typeof authSignupRoute
-  companyAnnouncementsRoute: typeof companyAnnouncementsRoute
-  companyAttendanceRoute: typeof companyAttendanceRoute
-  companyLocationsRoute: typeof companyLocationsRoute
-  companySchedulesRoute: typeof companySchedulesRoute
   companyVisitorsRoute: typeof companyVisitorsRoute
   organizationAcceptInvitationRoute: typeof organizationAcceptInvitationRoute
   organizationCreateOrganizationRoute: typeof organizationCreateOrganizationRoute
@@ -303,34 +251,6 @@ declare module '@tanstack/react-router' {
       path: '/visitors'
       fullPath: '/visitors'
       preLoaderRoute: typeof companyVisitorsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(company)/schedules': {
-      id: '/(company)/schedules'
-      path: '/schedules'
-      fullPath: '/schedules'
-      preLoaderRoute: typeof companySchedulesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(company)/locations': {
-      id: '/(company)/locations'
-      path: '/locations'
-      fullPath: '/locations'
-      preLoaderRoute: typeof companyLocationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(company)/attendance': {
-      id: '/(company)/attendance'
-      path: '/attendance'
-      fullPath: '/attendance'
-      preLoaderRoute: typeof companyAttendanceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(company)/announcements': {
-      id: '/(company)/announcements'
-      path: '/announcements'
-      fullPath: '/announcements'
-      preLoaderRoute: typeof companyAnnouncementsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(auth)/signup': {
@@ -420,10 +340,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
   authLoginRoute: authLoginRoute,
   authSignupRoute: authSignupRoute,
-  companyAnnouncementsRoute: companyAnnouncementsRoute,
-  companyAttendanceRoute: companyAttendanceRoute,
-  companyLocationsRoute: companyLocationsRoute,
-  companySchedulesRoute: companySchedulesRoute,
   companyVisitorsRoute: companyVisitorsRoute,
   organizationAcceptInvitationRoute: organizationAcceptInvitationRoute,
   organizationCreateOrganizationRoute: organizationCreateOrganizationRoute,
