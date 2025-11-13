@@ -526,6 +526,27 @@ function App() {
     );
   }
 
+  // Verificar si hay datos disponibles para mostrar estadísticas
+  const hasNoData = currentEvents.length === 0 && geofenceList.length === 0 && totalEmployees === 0;
+  
+  // TEMPORARY: Force no data state to see the screen
+  // TODO: Remove this line after testing
+  const forceNoData = true;
+
+  if (hasNoData || forceNoData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
+          <h2 className="text-2xl font-semibold">Aún no hay información disponible</h2>
+          <p className="text-muted-foreground max-w-md">
+            No hay datos suficientes para mostrar estadísticas. Una vez que comiences a registrar asistencia y configurar ubicaciones, aquí verás un resumen completo.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-6 pb-12">
       {/* Header */}
