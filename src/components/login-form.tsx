@@ -7,7 +7,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { login } from "@/lib/auth";
+import { login, waitForSessionReady } from "@/lib/auth";
 import { useRouter } from "@tanstack/react-router";
 
 export function LoginForm({
@@ -49,12 +49,12 @@ export function LoginForm({
       form.querySelector("#password") as HTMLInputElement
     ).value;
 
+    const safeRedirect =
+      redirect && redirect !== "/accept-invitation" ? redirect : "";
+
     try {
       await handleLogin(email, password);
-
-      // Delay redirect to ensure cookie is set before navigation
-      // This is especially important for cross-domain scenarios
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await waitForSessionReady();
 
       
       if (inviteToken) {
@@ -63,7 +63,7 @@ export function LoginForm({
       } else {
         // Otherwise, invalidate and let the router redirect appropriately
         await router.invalidate();
-        await router.navigate({ to: "/" });
+        await router.navigate({ to: safeRedirect || "/" });
       }
     } catch (error) {
       console.error("Error during login:", error);

@@ -2,11 +2,17 @@ import { SignupForm } from "@/components/signup-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { isAuthenticated } from "@/server/auth.server";
 
+function sanitizeRedirectPath(path: unknown) {
+  if (typeof path !== "string") return "";
+  if (!path.startsWith("/") || path.startsWith("//")) return "";
+  return path;
+}
+
 export const Route = createFileRoute("/(auth)/signup")({
   component: RouteComponent,
   beforeLoad: async ({ search }) => {
     const auth = await isAuthenticated();
-    const redirectPath = (search as any).redirect as string;
+    const redirectPath = sanitizeRedirectPath((search as any).redirect);
     const token = (search as any).token as string;
 
     if (auth) {
@@ -19,7 +25,7 @@ export const Route = createFileRoute("/(auth)/signup")({
   },
   validateSearch: (search: Record<string, unknown>) => {
     return {
-      redirect: (search.redirect as string) || "",
+      redirect: sanitizeRedirectPath(search.redirect),
       token: (search.token as string) || "",
     };
   },
