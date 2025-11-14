@@ -1,16 +1,15 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Outlet } from '@tanstack/react-router'
-import { isAuthenticated, notMemberRoute } from '@/server/auth.server'
-import { getOrganization, getUserOrganizations, setFirstOrganizationActive } from '@/server/organization.server'
+import { getUserOrganizations, setFirstOrganizationActive } from '@/server/organization.server'
+import { ensureProtectedContext } from '@/lib/protected-context-query'
 
 export const Route = createFileRoute('/_protected')({
   component: RouteComponent,
-  beforeLoad: async ({ location }) => {
-    const auth = await isAuthenticated();
-    const isMember = await notMemberRoute();
-    const organization = await getOrganization();
+  beforeLoad: async ({ location, context }) => {
+    const protectedContext = await ensureProtectedContext(context?.queryClient);
+    const { isAuthenticated, isMember, organization } = protectedContext;
 
-    if (!auth) {
+    if (!isAuthenticated) {
       throw redirect({
         to: "/login",
         search: {

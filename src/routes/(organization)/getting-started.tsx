@@ -10,17 +10,18 @@ import {
 } from "@/components/ui/card";
 import { useAuthData } from "@/hooks/use-auth-data";
 import { getUserInvitations, getUserOrganizations } from "@/server/organization.server";
-import { isAuthenticated, notMemberRoute } from "@/server/auth.server";
+import { ensureProtectedContext } from "@/lib/protected-context-query";
 
 export const Route = createFileRoute("/(organization)/getting-started")({
   component: RouteComponent,
-  beforeLoad: async () => {
-    const auth = await isAuthenticated();
-    const isMember = await notMemberRoute();
+  beforeLoad: async ({ context }) => {
+    const { isAuthenticated, isMember } = await ensureProtectedContext(
+      context?.queryClient,
+    );
     const invitations = await getUserInvitations();
     const hasPendingInvitations = invitations?.data?.some((invitation) => invitation.status === "pending");
 
-    if (!auth) {
+    if (!isAuthenticated) {
       throw redirect({ to: "/login" });
     }
     
@@ -244,4 +245,3 @@ function RouteComponent() {
     </div>
   );
 }
-

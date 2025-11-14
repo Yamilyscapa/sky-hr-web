@@ -48,6 +48,17 @@ export function getMonthRangeStrings(date: Date) {
   };
 }
 
+export function getQuarterRangeStrings(date: Date) {
+  const endDate = endOfMonth(date);
+  const startDate = startOfMonth(new Date(date));
+  startDate.setMonth(startDate.getMonth() - 2);
+  const normalizedStart = startOfMonth(startDate);
+  return {
+    startDate: normalizedStart.toISOString().split("T")[0],
+    endDate: endDate.toISOString().split("T")[0],
+  };
+}
+
 export function buildMonthOptions(selectedMonth: Date, limit = MONTH_SELECT_LIMIT): MonthOption[] {
   const options: MonthOption[] = [];
   const current = startOfMonth(new Date());

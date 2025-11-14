@@ -118,10 +118,10 @@ function getRoleFromSessionData(
 export function useIsOrgAdmin() {
   const { organization } = useOrganizationStore();
   const organizationRole = getMemberRoleFromOrg(organization);
-  const { data: session } = useSession();
+  const { data: protectedContext } = useSession();
 
   const betterAuthRole = getRoleFromSessionData(
-    session?.data,
+    protectedContext?.session,
     organization?.id,
   );
 

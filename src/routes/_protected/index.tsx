@@ -47,8 +47,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, createFileRoute, redirect } from "@tanstack/react-router";
-import { isAuthenticated } from "@/server/auth.server";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { getOrganization, getUserOrganizations } from "@/server/organization.server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
