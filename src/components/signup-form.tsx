@@ -7,7 +7,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { signUp } from "@/lib/auth"
+import { signUp, waitForSessionReady } from "@/lib/auth"
 import { useRouter } from "@tanstack/react-router"
 
 export function SignupForm({
@@ -51,8 +51,12 @@ export function SignupForm({
     const password: string = (form.querySelector("#password") as HTMLInputElement).value;
     const confirmPassword: string = (form.querySelector("#confirm-password") as HTMLInputElement).value;
 
+    const safeRedirect =
+      redirect && redirect !== "/accept-invitation" ? redirect : ""
+
     try {
       await handleSignUp(email, password, confirmPassword, name)
+      await waitForSessionReady()
 
       // After successful signup, redirect based on context
       if (inviteToken) {
@@ -61,7 +65,7 @@ export function SignupForm({
       } else {
         // Otherwise, invalidate and let the router redirect appropriately
         await router.invalidate()
-        await router.navigate({ to: "/" })
+        await router.navigate({ to: safeRedirect || "/" })
       }
     } catch (error) {
       console.error("Error during signup:", error)
