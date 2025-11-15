@@ -7,7 +7,7 @@ export const Route = createFileRoute('/_protected')({
   component: RouteComponent,
   beforeLoad: async ({ location, context }) => {
     const protectedContext = await ensureProtectedContext(context?.queryClient);
-    const { isAuthenticated, isMember, organization } = protectedContext;
+    const { isAuthenticated, organization, membershipStatus } = protectedContext;
 
     if (!isAuthenticated) {
       throw redirect({
@@ -39,9 +39,9 @@ export const Route = createFileRoute('/_protected')({
       // No organizations at all - redirect to getting started to create one
       throw redirect({ to: "/getting-started" });
     }
-
-    if (isMember) {
-      throw redirect({ to: "/getting-started" });
+    
+    if (membershipStatus === "unknown") {
+      console.warn("Organization role could not be determined from protected context.");
     }
   }
 })

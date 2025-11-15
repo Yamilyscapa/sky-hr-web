@@ -129,6 +129,12 @@ export const isAuthenticated = async () => {
 };
 
 export const logout = async () => {
-  const { data, error } = await authClient.signOut();
-  return { data, error };
+  const { error } = await authClient.signOut();
+
+  if (error) {
+    console.error("Logout failed:", error);
+    return;
+  }
+  
+  window.location.reload();
 };

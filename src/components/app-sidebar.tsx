@@ -2,6 +2,7 @@ import { LogOutIcon, UserIcon, Settings } from "lucide-react";
 import { useRouter, Link } from "@tanstack/react-router";
 import { useUserStore } from "@/store/user-store";
 import { useOrganizationStore } from "@/store/organization-store";
+import { Button } from "@/components/ui/button";
 
 import {
   Sidebar,
@@ -22,6 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { logout } from "@/lib/auth";
 
 const data = {
   navMain: [
@@ -184,14 +186,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </TooltipTrigger>
                 <TooltipContent side="right" className="w-48 p-2">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer">
+                    <Button className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer">
                       <Settings className="size-4" />
                       <span className="text-sm">Configuración</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer text-red-600 hover:text-red-700">
+                    </Button>
+                    <Button variant="ghost" onClick={() => logout()} className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer text-red-600 hover:text-red-700">
                       <LogOutIcon className="size-4" />
                       <span className="text-sm">Cerrar sesión</span>
-                    </div>
+                    </Button>
                   </div>
                 </TooltipContent>
               </Tooltip>
