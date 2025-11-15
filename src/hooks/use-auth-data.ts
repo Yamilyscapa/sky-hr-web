@@ -46,6 +46,8 @@ export function useAuthData(options?: UseQueryOptions) {
     user: authData?.user ?? null,
     organization: authData?.organization?.data ?? null,
     isMember: authData?.isMember ?? false,
+    membershipStatus: authData?.membershipStatus ?? "unknown",
+    pendingInvitations: authData?.pendingInvitations ?? [],
     isAuthenticated: authData?.isAuthenticated ?? false,
     isLoading: query.isLoading,
   };

@@ -9,27 +9,25 @@ import {
 import { Input } from "@/components/ui/input";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
-import { getUserInvitations } from "@/server/organization.server";
-import { isAuthenticated } from "@/server/auth.server";
+import { ensureProtectedContext } from "@/lib/protected-context-query";
 
 export const Route = createFileRoute("/(organization)/create-organization")({
   component: RouteComponent,
-  beforeLoad: async () => {
-    const auth = await isAuthenticated();
-    if (!auth) {
+  beforeLoad: async ({ context }) => {
+    const protectedContext = await ensureProtectedContext(context?.queryClient);
+    if (!protectedContext.isAuthenticated) {
       throw redirect({ to: "/login" });
     }
-    const { data: invitations } = await getUserInvitations();
+    
+    if (protectedContext.organization?.data) {
+      throw redirect({ to: "/" });
+    }
 
-    if (invitations && invitations.length > 0) {
-
-      invitations.forEach((invitation) => {
-        if (invitation.status === "pending") {
-          throw redirect({
-            to: "/accept-invitation",
-            search: { token: invitation.id },
-          });
-        }
+    const pendingInvitation = protectedContext.pendingInvitations[0];
+    if (pendingInvitation) {
+      throw redirect({
+        to: "/accept-invitation",
+        search: { token: pendingInvitation.id || "" },
       });
     }
   },
