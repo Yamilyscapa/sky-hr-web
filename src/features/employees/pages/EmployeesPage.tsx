@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -14,45 +14,51 @@ import { DataTableCard } from "@/components/ui/data-table-card";
 import { type ActionMenuItem } from "@/components/ui/action-menu";
 import { useReactTable, getCoreRowModel, getSortedRowModel } from "@tanstack/react-table";
 import { Copy, Trash2 } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
-import { useUserStore } from "@/store/user-store";
 import { useOrganizationStore } from "@/store/organization-store";
-import type {
-  Employee,
-  Geofence,
-  PendingInvitation,
-  Shift,
-} from "../types";
-import {
-  assignGeofences,
-  assignShift,
-  fetchGeofences,
-  fetchShifts,
-  fetchUserGeofences,
-  fetchUserSchedules,
-  removeGeofence,
-} from "../data";
+import type { Employee } from "../types";
 import { PendingInvitationsPanel } from "../components/PendingInvitationsPanel";
 import { EmployeeDetailsDialog } from "../components/EmployeeDetailsDialog";
 import { ManageEmployeeDialog } from "../components/ManageEmployeeDialog";
 import { createEmployeeColumns } from "../components/EmployeesTableColumns";
+import {
+  useShifts,
+  useGeofences,
+  useEmployees,
+  useInvitations,
+  useAssignShift,
+  useAssignLocations,
+  useRemoveLocation,
+  useAssignHourlyRate,
+  useUpdateOvertime,
+  useDeleteEmployee,
+  useUpdateMemberRole,
+  useInviteMember,
+  useCancelInvitation,
+  useBulkRemoveEmployees,
+} from "../hooks/useEmployees";
 
 export function EmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
-  const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [detailsEmployee, setDetailsEmployee] = useState<Employee | null>(null);
   const [manageEmployee, setManageEmployee] = useState<Employee | null>(null);
-  const [deletingEmployeeId, setDeletingEmployeeId] = useState<string | null>(null);
-  const [cancellingInvitationId, setCancellingInvitationId] = useState<string | null>(null);
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
-  const [invitationsLoading, setInvitationsLoading] = useState(false);
-  const [invitationsError, setInvitationsError] = useState<string | null>(null);
-  const [promotingMemberId, setPromotingMemberId] = useState<string | null>(null);
-  const [demotingMemberId, setDemotingMemberId] = useState<string | null>(null);
-  const { user } = useUserStore();
   const { organization } = useOrganizationStore();
+
+  // React Query hooks
+  const { data: shifts = [] } = useShifts();
+  const { data: geofences = [] } = useGeofences(organization?.id);
+  const { data: employees = [] } = useEmployees();
+  const { data: pendingInvitations = [], isLoading: invitationsLoading, error: invitationsError } = useInvitations();
+
+  // Mutation hooks
+  const assignShiftMutation = useAssignShift();
+  const assignLocationsMutation = useAssignLocations();
+  const removeLocationMutation = useRemoveLocation();
+  const assignHourlyRateMutation = useAssignHourlyRate();
+  const updateOvertimeMutation = useUpdateOvertime();
+  const deleteEmployeeMutation = useDeleteEmployee();
+  const updateMemberRoleMutation = useUpdateMemberRole();
+  const inviteMemberMutation = useInviteMember();
+  const cancelInvitationMutation = useCancelInvitation();
+  const bulkRemoveEmployeesMutation = useBulkRemoveEmployees();
 
   const handleAssignShift = async (
     employeeId: string,
@@ -60,24 +66,22 @@ export function EmployeesPage() {
     effectiveFrom: string,
     effectiveUntil?: string,
   ) => {
-    const effectiveFromISO = new Date(effectiveFrom).toISOString();
-    const effectiveUntilISO = effectiveUntil
-      ? new Date(effectiveUntil).toISOString()
-      : undefined;
-
-    const response = await assignShift({
-      user_id: employeeId,
-      shift_id: shiftId,
-      effective_from: effectiveFromISO,
-      effective_until: effectiveUntilISO,
+    await assignShiftMutation.mutateAsync({
+      employeeId,
+      shiftId,
+      effectiveFrom,
+      effectiveUntil,
     });
+  };
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    alert("Turno asignado exitosamente");
-    await handleUsersList();
+  const handleUpdateOvertime = async (
+    employeeId: string,
+    overtimeAllowed: boolean,
+  ) => {
+    await updateOvertimeMutation.mutateAsync({
+      employeeId,
+      overtimeAllowed,
+    });
   };
 
   const handleAssignLocations = async (
@@ -85,32 +89,30 @@ export function EmployeesPage() {
     geofenceIds: string[],
     assignAll?: boolean,
   ) => {
-    const response = await assignGeofences({
-      user_id: employeeId,
-      geofence_ids: assignAll ? undefined : geofenceIds,
-      assign_all: assignAll,
+    await assignLocationsMutation.mutateAsync({
+      employeeId,
+      geofenceIds,
+      assignAll,
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    alert("Ubicaciones asignadas exitosamente");
-    await handleUsersList();
   };
 
   const handleRemoveLocation = async (employeeId: string, geofenceId: string) => {
-    const response = await removeGeofence({
-      user_id: employeeId,
-      geofence_id: geofenceId,
+    await removeLocationMutation.mutateAsync({
+      employeeId,
+      geofenceId,
     });
+  };
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    alert("Ubicación removida exitosamente");
-    await handleUsersList();
+  const handleAssignHourlyRate = async (
+    employeeId: string,
+    hourlyRate: number,
+    _effectiveFrom: string,
+    _effectiveUntil?: string,
+  ) => {
+    await assignHourlyRateMutation.mutateAsync({
+      employeeId,
+      hourlyRate,
+    });
   };
 
   const handleViewEmployeeDetails = (employee: Employee) => {
@@ -140,21 +142,7 @@ export function EmployeesPage() {
       return;
     }
 
-    const identifier = employee.id || employee.email;
-    setDeletingEmployeeId(employee.id ?? null);
-    try {
-      await authClient.organization.removeMember({
-        memberIdOrEmail: identifier,
-        organizationId: organization?.id,
-      });
-      alert("Empleado eliminado exitosamente");
-      await handleUsersList();
-    } catch (error) {
-      console.error("Error eliminando empleado:", error);
-      alert("Error al eliminar el empleado. Por favor, intenta de nuevo.");
-    } finally {
-      setDeletingEmployeeId(null);
-    }
+    await deleteEmployeeMutation.mutateAsync(employee);
   };
 
   const handleUpdateMemberRole = async (
@@ -173,27 +161,10 @@ export function EmployeesPage() {
       return;
     }
 
-    const setLoading =
-      targetRole === "admin" ? setPromotingMemberId : setDemotingMemberId;
-    setLoading(employee.id);
-    try {
-      await authClient.organization.updateMemberRole({
-        memberId: employee.id,
-        role: targetRole,
-        organizationId: organization?.id,
-      });
-      alert(
-        targetRole === "admin"
-          ? "Empleado promovido a administrador"
-          : "Empleado degradado a miembro",
-      );
-      await handleUsersList();
-    } catch (error) {
-      console.error("Error actualizando rol:", error);
-      alert("No se pudo actualizar el rol. Intenta de nuevo.");
-    } finally {
-      setLoading(null);
-    }
+    await updateMemberRoleMutation.mutateAsync({
+      employee,
+      targetRole,
+    });
   };
 
   const handlePromoteEmployee = (employee: Employee) =>
@@ -208,14 +179,15 @@ export function EmployeesPage() {
     onAssignShift: handleAssignShift,
     onAssignLocations: handleAssignLocations,
     onRemoveLocation: handleRemoveLocation,
+    onAssignHourlyRate: handleAssignHourlyRate,
     onViewEmployee: handleViewEmployeeDetails,
     onManageEmployee: handleManageEmployee,
     onDeleteEmployee: handleDeleteEmployee,
     onPromoteEmployee: handlePromoteEmployee,
     onDemoteEmployee: handleDemoteEmployee,
-    deletingEmployeeId,
-    promotingMemberId,
-    demotingMemberId,
+    deletingEmployeeId: deleteEmployeeMutation.isPending && deleteEmployeeMutation.variables?.id ? deleteEmployeeMutation.variables.id : null,
+    promotingMemberId: updateMemberRoleMutation.isPending && updateMemberRoleMutation.variables?.targetRole === "admin" && updateMemberRoleMutation.variables.employee.id ? updateMemberRoleMutation.variables.employee.id : null,
+    demotingMemberId: updateMemberRoleMutation.isPending && updateMemberRoleMutation.variables?.targetRole === "member" && updateMemberRoleMutation.variables.employee.id ? updateMemberRoleMutation.variables.employee.id : null,
   });
 
   const table = useReactTable({
@@ -257,31 +229,11 @@ export function EmployeesPage() {
       return;
     }
 
-    setIsBulkProcessing(true);
     try {
-      await Promise.all([
-        ...pendingInvites.map((employee) =>
-          employee.invitationId
-            ? authClient.organization.cancelInvitation({
-                invitationId: employee.invitationId,
-              })
-            : Promise.resolve(),
-        ),
-        ...activeMembers.map((employee) =>
-          authClient.organization.removeMember({
-            memberIdOrEmail: employee.id || employee.email,
-            organizationId: organization?.id,
-          }),
-        ),
-      ]);
-      alert("Acciones masivas completadas");
-      await handleUsersList();
+      await bulkRemoveEmployeesMutation.mutateAsync(selectedEmployees);
       table.resetRowSelection();
     } catch (error) {
-      console.error("Error al ejecutar la acción masiva:", error);
-      alert("Ocurrió un error. Por favor, intenta de nuevo.");
-    } finally {
-      setIsBulkProcessing(false);
+      // Error handling is done in the mutation hook
     }
   };
 
@@ -325,13 +277,13 @@ export function EmployeesPage() {
       icon: Trash2,
       action: handleBulkRemoveEmployees,
       destructive: true,
-      disabled: isBulkProcessing,
+      disabled: bulkRemoveEmployeesMutation.isPending,
     },
     {
       label: "Copiar correos",
       icon: Copy,
       action: handleBulkCopyEmails,
-      disabled: isBulkProcessing,
+      disabled: bulkRemoveEmployeesMutation.isPending,
     },
   ];
 
@@ -342,183 +294,26 @@ export function EmployeesPage() {
     const form = event.currentTarget;
     const email =
       (form.querySelector("#employee-email") as HTMLInputElement)?.value ?? "";
-    const result = await authClient.organization.inviteMember({
-      email,
-      role: "member",
-    });
-
-    if (result.error) {
-      console.error(result.error);
-    } else {
-      await handleUsersList();
+    
+    try {
+      await inviteMemberMutation.mutateAsync(email);
       form.reset();
-    }
-  };
-
-  const loadShifts = async () => {
-    try {
-      const shiftList = await fetchShifts();
-      setShifts(shiftList);
     } catch (error) {
-      console.error("Error fetching shifts:", error);
+      // Error handling is done in the mutation hook
     }
-  };
-
-  const loadGeofences = async () => {
-    if (!organization?.id) return;
-    try {
-      const geofenceList = await fetchGeofences(organization.id);
-      setGeofences(geofenceList);
-    } catch (error) {
-      console.error("Error fetching geofences:", error);
-    }
-  };
-
-  const refreshInvitations = async () => {
-    setInvitationsLoading(true);
-    setInvitationsError(null);
-    try {
-      const invitationsResult = await authClient.organization.listInvitations();
-      const invitationsPayload = invitationsResult.data as any;
-      const invitationsList = Array.isArray(invitationsPayload)
-        ? invitationsPayload
-        : Array.isArray(invitationsPayload?.invitations)
-          ? invitationsPayload.invitations
-          : [];
-      const pendingList = invitationsList
-        .filter((invitation: any) => invitation.status === "pending")
-        .map((invitation: any) => ({
-          id: invitation.id,
-          email: invitation.email ?? "",
-          role: invitation.role ?? "member",
-          status: invitation.status ?? "pending",
-          inviterId: invitation.inviterId ?? invitation.inviter_id,
-          expiresAt: invitation.expiresAt ?? invitation.expires_at,
-          createdAt: invitation.createdAt ?? invitation.created_at,
-        }));
-      setPendingInvitations(pendingList);
-    } catch (error) {
-      console.error("Error fetching invitaciones:", error);
-      setInvitationsError("No pudimos cargar las invitaciones. Inténtalo de nuevo.");
-    } finally {
-      setInvitationsLoading(false);
-    }
-  };
-
-  const refreshMembers = async () => {
-    const currentUserEmail = user?.email;
-    try {
-      const membersResult = await authClient.organization.listMembers();
-      const activeMembers: Employee[] =
-        membersResult.data?.members?.map((member) => ({
-          id: member.user?.id ?? "",
-          email: member.user?.email ?? "",
-          name: member.user?.name ?? "",
-          isCurrentUser: currentUserEmail
-            ? member.user?.email === currentUserEmail
-            : false,
-          status: "active",
-          role: member.role ?? "member",
-        })) ?? [];
-
-      const membersWithExtraData = await Promise.all(
-        activeMembers.map(async (member) => {
-          if (!member.id) return member;
-          let memberData = { ...member };
-
-          try {
-            const schedules = await fetchUserSchedules(member.id);
-            const now = new Date();
-            const activeSchedules = schedules.filter((schedule: any) => {
-              const effectiveFrom = new Date(schedule.effective_from);
-              const effectiveUntil = schedule.effective_until
-                ? new Date(schedule.effective_until)
-                : null;
-
-              return (
-                effectiveFrom <= now && (!effectiveUntil || effectiveUntil >= now)
-              );
-            });
-
-            const activeSchedule = activeSchedules.sort((a: any, b: any) => {
-              const dateA = new Date(a.created_at);
-              const dateB = new Date(b.created_at);
-              return dateB.getTime() - dateA.getTime();
-            })[0];
-
-            if (activeSchedule?.shift_id) {
-              const shift = shifts.find((s) => s.id === activeSchedule.shift_id);
-              if (shift) {
-                memberData = {
-                  ...memberData,
-                  shift: {
-                    id: shift.id,
-                    name: shift.name,
-                    color: shift.color,
-                  },
-                };
-              }
-            }
-
-            const userGeofences = await fetchUserGeofences(member.id);
-            memberData = {
-              ...memberData,
-              geofences: userGeofences,
-            };
-          } catch (error) {
-            console.error(`Error fetching data for user ${member.id}:`, error);
-          }
-
-          return memberData;
-        }),
-      );
-
-      setEmployees(membersWithExtraData);
-    } catch (error) {
-      console.error("Error fetching miembros:", error);
-      setEmployees([]);
-    }
-  };
-
-  const handleUsersList = async () => {
-    await Promise.all([refreshMembers(), refreshInvitations()]);
   };
 
   const handleCancelInvitation = async (invitationId: string, email: string) => {
     if (!window.confirm(`¿Deseas cancelar la invitación para ${email}?`)) {
       return;
     }
-    setCancellingInvitationId(invitationId);
+    
     try {
-      await authClient.organization.cancelInvitation({ invitationId });
-      alert("Invitación cancelada exitosamente");
-      await refreshInvitations();
+      await cancelInvitationMutation.mutateAsync(invitationId);
     } catch (error) {
-      console.error("Error cancelando invitación:", error);
-      alert("Error al cancelar la invitación. Por favor, intenta de nuevo.");
-    } finally {
-      setCancellingInvitationId(null);
+      // Error handling is done in the mutation hook
     }
   };
-
-  useEffect(() => {
-    if (user && organization?.id) {
-      void loadShifts();
-      void loadGeofences();
-    }
-  }, [user, organization?.id]);
-
-  useEffect(() => {
-    if (user && shifts.length > 0 && geofences.length >= 0) {
-      void handleUsersList();
-    }
-  }, [user, shifts, geofences, organization?.id]);
-
-  useEffect(() => {
-    if (user) {
-      void refreshInvitations();
-    }
-  }, [user]);
 
 
   return (
@@ -545,9 +340,9 @@ export function EmployeesPage() {
       <PendingInvitationsPanel
         invitations={pendingInvitations}
         loading={invitationsLoading}
-        error={invitationsError}
+        error={invitationsError ? (invitationsError instanceof Error ? invitationsError.message : String(invitationsError)) : null}
         onCancelInvitation={handleCancelInvitation}
-        cancellingInvitationId={cancellingInvitationId}
+        cancellingInvitationId={cancelInvitationMutation.isPending && cancelInvitationMutation.variables ? cancelInvitationMutation.variables : null}
       />
 
       <Separator className="mt-8" />
@@ -581,6 +376,8 @@ export function EmployeesPage() {
           onAssignShift={handleAssignShift}
           onAssignLocations={handleAssignLocations}
           onRemoveLocation={handleRemoveLocation}
+          onAssignHourlyRate={handleAssignHourlyRate}
+          onUpdateOvertime={handleUpdateOvertime}
           open={Boolean(manageEmployee)}
           onOpenChange={(open) => {
             if (!open) {

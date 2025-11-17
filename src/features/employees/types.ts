@@ -34,6 +34,7 @@ export type Employee = {
   };
   geofences?: Geofence[];
   role?: string;
+  hourlyRate?: number;
 };
 
 export type PendingInvitation = {
@@ -45,3 +46,8 @@ export type PendingInvitation = {
   expiresAt?: string;
   createdAt?: string;
 };
+
+export const EMPLOYEES_QUERY_KEY = ["employees"] as const;
+export const SHIFTS_QUERY_KEY = ["shifts"] as const;
+export const GEOFENCES_QUERY_KEY = ["geofences"] as const;
+export const INVITATIONS_QUERY_KEY = ["invitations"] as const;

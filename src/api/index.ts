@@ -323,10 +323,10 @@ export class API {
     return await this.post("/schedules/assign", data);
   }
 
+
   public async getUserSchedule(userId: string) {
     return await this.get(`/schedules/user/${userId}`);
   }
-
   // User-Geofence API methods
   public async assignGeofencesToUser(data: {
     user_id: string;
@@ -627,6 +627,31 @@ export class API {
     }
     const response = await this.post(`/visitors/${id}/cancel`, {}, Object.keys(headers).length > 0 ? headers : undefined);
     return await this.handleResponse<SingleRecordResponse<ApiVisitor>>(response);
+  }
+
+  // Hourly Rate API methods
+  public async getHourlyRate(userId: string) {
+    const response = await this.get(`/payroll/${userId}`);
+    return response;
+  }
+
+  public async getOvertime(userId: string) {
+    const response = await this.get(`/payroll/overtime/${userId}`);
+    return response;
+  }
+  
+  public async updateHourlyRate(userId: string, hourlyRate: number) {
+    const response = await this.put(`/payroll`, { user_id: userId, hourly_rate: hourlyRate });
+    
+    return response;
+  }
+
+  public async updateOvertime(userId: string, overtimeAllowed: boolean) {
+    const response = await this.put(`/payroll/overtime/${userId}`, {
+      overtime_allowed: overtimeAllowed,
+    });
+
+    return response;
   }
 }
 
