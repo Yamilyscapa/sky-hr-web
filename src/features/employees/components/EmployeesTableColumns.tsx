@@ -1,10 +1,11 @@
-import { ArrowUpDown, Edit, Eye, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { Edit, Eye, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import type { Employee, Geofence, Shift } from "../types";
 import { ShiftCell } from "./ShiftCell";
 import { LocationCell } from "./LocationCell";
+import { HourlyRateCell } from "./HourlyRateCell";
 
 type ActionsCellProps = {
   employee: Employee;
@@ -95,6 +96,12 @@ type ColumnBuilderParams = {
     assignAll?: boolean,
   ) => Promise<void>;
   onRemoveLocation: (employeeId: string, geofenceId: string) => Promise<void>;
+  onAssignHourlyRate: (
+    employeeId: string,
+    hourlyRate: number,
+    effectiveFrom: string,
+    effectiveUntil?: string,
+  ) => Promise<void>;
   onViewEmployee: (employee: Employee) => void;
   onManageEmployee: (employee: Employee) => void;
   onDeleteEmployee: (employee: Employee) => void;
@@ -111,6 +118,7 @@ export const createEmployeeColumns = ({
   onAssignShift,
   onAssignLocations,
   onRemoveLocation,
+  onAssignHourlyRate,
   onViewEmployee,
   onManageEmployee,
   onDeleteEmployee,
@@ -142,22 +150,14 @@ export const createEmployeeColumns = ({
     enableHiding: false,
   },
   {
-    header: ({ column }) => (
-      <button
-        className="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        <span>Correo</span>
-        <ArrowUpDown className="h-4 w-4" />
-      </button>
-    ),
-    accessorKey: "email",
+    header: "Nombre",
+    accessorKey: "name",
     cell: ({ row }) => {
-      const email = row.original.email;
+      const name = row.original.name;
       const isCurrentUser = row.original.isCurrentUser;
       return (
         <div className="flex items-center gap-2">
-          <span>{email}</span>
+          <span>{name}</span>
           {isCurrentUser && (
             <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
               YO
@@ -166,12 +166,6 @@ export const createEmployeeColumns = ({
         </div>
       );
     },
-    enableSorting: true,
-  },
-  {
-    header: "Nombre",
-    accessorKey: "name",
-    cell: ({ row }) => <p>{row.original.name}</p>,
     enableSorting: true,
   },
   {
@@ -197,6 +191,16 @@ export const createEmployeeColumns = ({
         employee={row.original}
         shifts={shifts}
         onAssignShift={onAssignShift}
+      />
+    ),
+  },
+  {
+    header: "Tarifa por hora",
+    accessorKey: "hourlyRate",
+    cell: ({ row }) => (
+      <HourlyRateCell
+        employee={row.original}
+        onAssignHourlyRate={onAssignHourlyRate}
       />
     ),
   },

@@ -21,14 +21,13 @@ import {
 import { Download, RefreshCw, UserX } from "lucide-react";
 import type { ActionMenuItem } from "@/components/ui/action-menu";
 import type { AttendanceEvent, UserInfo } from "../types";
-import {
-  ATTENDANCE_PAGE_SIZE,
-  fetchAttendanceEvents,
-  fetchAttendanceReport,
-  fetchOrganizationMembersMap,
-  updateAttendanceStatus,
-} from "../data";
+import { ATTENDANCE_PAGE_SIZE, updateAttendanceStatus } from "../data";
 import { useAttendanceTable } from "../hooks/useAttendanceTable";
+import {
+  useAttendanceEventsQuery,
+  useAttendanceFlaggedEventsQuery,
+  useAttendanceMembersMap,
+} from "../hooks/useAttendanceData";
 import { AttendanceTableCard } from "../components/AttendanceTableCard";
 import { MarkAbsencesDialog } from "../components/MarkAbsencesDialog";
 import { AttendanceSummary } from "../components/AttendanceSummary";
@@ -37,34 +36,48 @@ import { UpdateStatusDialog } from "../components/UpdateStatusDialog";
 import { AttendanceHistoryDialog } from "../components/AttendanceHistoryDialog";
 
 export function AttendancePage() {
-  const [attendanceEvents, setAttendanceEvents] = useState<AttendanceEvent[]>(
-    [],
-  );
-  const [flaggedCount, setFlaggedCount] = useState(0);
   const [selectedEvent, setSelectedEvent] = useState<AttendanceEvent | null>(
     null,
   );
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [markAbsencesDialogOpen, setMarkAbsencesDialogOpen] = useState(false);
-  const [usersMap, setUsersMap] = useState<Map<string, UserInfo>>(new Map());
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [historyUserId, setHistoryUserId] = useState<string | null>(null);
-  const [pagination, setPagination] = useState<{
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages?: number;
-  } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMonth, setSelectedMonth] = useState(() =>
     startOfMonth(new Date()),
   );
-  const [isLoading, setIsLoading] = useState(false);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   const { organization } = useOrganizationStore();
 
+  const monthRange = useMemo(() => {
+    const startDateObj = startOfMonth(selectedMonth);
+    const endDateObj = endOfMonth(selectedMonth);
+    const { startDate, endDate } = getMonthRangeStrings(selectedMonth);
+    return { startDateObj, endDateObj, startDate, endDate };
+  }, [selectedMonth]);
+
+  const attendanceEventsQuery = useAttendanceEventsQuery({
+    organizationId: organization?.id,
+    startDate: monthRange.startDate,
+    endDate: monthRange.endDate,
+    page: currentPage,
+    pageSize: ATTENDANCE_PAGE_SIZE,
+    enabled: Boolean(organization?.id),
+  });
+
+  const flaggedEventsQuery = useAttendanceFlaggedEventsQuery(organization?.id);
+  const membersMapQuery = useAttendanceMembersMap(organization?.id);
+
+  const emptyUsersMap = useMemo(() => new Map<string, UserInfo>(), []);
+  const usersMap = membersMapQuery.data ?? emptyUsersMap;
+  const attendanceEvents = attendanceEventsQuery.data?.events ?? [];
+  const pagination = attendanceEventsQuery.data?.pagination ?? null;
+  const isLoading = attendanceEventsQuery.isFetching;
+
+  const { startDateObj, endDateObj } = monthRange;
   const selectedMonthValue = formatMonthValue(selectedMonth);
   const monthOptions = useMemo(
     () => buildMonthOptions(selectedMonth),
@@ -73,6 +86,17 @@ export function AttendancePage() {
   const currentMonthValue = formatMonthValue(startOfMonth(new Date()));
   const isNextMonthDisabled = selectedMonthValue >= currentMonthValue;
   const selectedMonthLabel = formatMonthLabel(selectedMonth);
+
+  const flaggedCount = useMemo(() => {
+    const flaggedEvents = flaggedEventsQuery.data ?? [];
+    if (!flaggedEvents.length) {
+      return 0;
+    }
+
+    return flaggedEvents.filter((event) =>
+      isWithinRange(event.check_in, startDateObj, endDateObj),
+    ).length;
+  }, [flaggedEventsQuery.data, startDateObj, endDateObj]);
 
   const { table, getSelectedEvents } = useAttendanceTable({
     events: attendanceEvents,
@@ -189,7 +213,7 @@ export function AttendancePage() {
       );
       alert("Eventos actualizados correctamente");
       table.resetRowSelection();
-      void fetchAttendanceData(currentPage, selectedMonth);
+      await refetchAttendanceData();
     } catch (error) {
       console.error("Error updating events:", error);
       alert("No se pudieron actualizar los eventos seleccionados.");
@@ -214,40 +238,15 @@ export function AttendancePage() {
     },
   ];
 
-  async function fetchAttendanceData(page = 1, monthDate = selectedMonth) {
+  const refetchAttendanceData = async () => {
     if (!organization?.id) {
       return;
     }
-
-    setIsLoading(true);
-    try {
-      const { startDate, endDate } = getMonthRangeStrings(monthDate);
-      const [flaggedEvents, eventsResponse] = await Promise.all([
-        fetchAttendanceReport(),
-        fetchAttendanceEvents({
-          page,
-          pageSize: ATTENDANCE_PAGE_SIZE,
-          startDate,
-          endDate,
-        }),
-      ]);
-
-      const start = startOfMonth(monthDate);
-      const end = endOfMonth(monthDate);
-      const filteredFlagged = flaggedEvents.filter((event) =>
-        isWithinRange(event.check_in, start, end),
-      );
-      setFlaggedCount(filteredFlagged.length);
-
-      setAttendanceEvents(eventsResponse.events);
-      setPagination(eventsResponse.pagination);
-      setCurrentPage(eventsResponse.pagination?.page ?? page);
-    } catch (error) {
-      console.error("Error fetching attendance data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
+    await Promise.all([
+      attendanceEventsQuery.refetch(),
+      flaggedEventsQuery.refetch(),
+    ]);
+  };
 
   const handlePageChange = (nextPage: number) => {
     if (!pagination) {
@@ -257,7 +256,7 @@ export function AttendancePage() {
     if (nextPage < 1 || nextPage > totalPages || nextPage === currentPage) {
       return;
     }
-    void fetchAttendanceData(nextPage, selectedMonth);
+    setCurrentPage(nextPage);
   };
 
   const handlePreviousMonth = () => {
@@ -287,25 +286,19 @@ export function AttendancePage() {
   };
 
   const handleUpdateComplete = () => {
-    void fetchAttendanceData(currentPage, selectedMonth);
+    void refetchAttendanceData();
   };
-
-  useEffect(() => {
-    if (organization?.id) {
-      fetchOrganizationMembersMap()
-        .then(setUsersMap)
-        .catch((error) =>
-          console.error("Error fetching organization members:", error),
-        );
-    }
-  }, [organization?.id]);
-
   useEffect(() => {
     if (organization?.id) {
       setCurrentPage(1);
-      void fetchAttendanceData(1, selectedMonth);
     }
   }, [organization?.id, selectedMonth]);
+
+  useEffect(() => {
+    if (pagination?.page && pagination.page !== currentPage) {
+      setCurrentPage(pagination.page);
+    }
+  }, [pagination?.page, currentPage]);
 
   return (
     <div className="space-y-6 p-6 pb-12">
@@ -331,7 +324,9 @@ export function AttendancePage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fetchAttendanceData(currentPage, selectedMonth)}
+                  onClick={() => {
+                    void refetchAttendanceData();
+                  }}
                   disabled={isLoading}
                 >
                   <RefreshCw

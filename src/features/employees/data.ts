@@ -33,6 +33,45 @@ export async function assignShift(payload: {
   return API.assignShift(payload);
 }
 
+export async function assignHourlyRate(userId: string, hourlyRate: number) {
+  return API.updateHourlyRate(userId, hourlyRate);
+}
+
+export async function fetchHourlyRate(userId: string) {
+  const response = await API.getHourlyRate(userId);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null;
+    }
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const hourlyRate = result?.data?.hourlyRate ?? result?.data?.hourly_rate;
+  return typeof hourlyRate === "number" ? hourlyRate : null;
+}
+
+export async function fetchOvertime(userId: string) {
+  const response = await API.getOvertime(userId);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return false;
+    }
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const overtimePreference =
+    result?.data?.overtimeAllowed ?? result?.data?.overtime_allowed;
+  return Boolean(overtimePreference);
+}
+
+export async function updateOvertime(userId: string, overtimeAllowed: boolean) {
+  return API.updateOvertime(userId, overtimeAllowed);
+}
+
 export async function assignGeofences(payload: {
   user_id: string;
   geofence_ids?: string[];
