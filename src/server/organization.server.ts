@@ -72,3 +72,29 @@ export const setFirstOrganizationActive = createServerFn({
   return null;
 });
 
+export const setActiveOrganizationBySlug = createServerFn({
+  method: "POST",
+}).handler(async ({ data }) => {
+  const request = getRequest();
+  if (!request) {
+    throw new Error("Request context not available.");
+  }
+
+  const slug = typeof data?.slug === "string" ? data.slug.trim() : "";
+  if (!slug) {
+    throw new Error("Organization slug is required.");
+  }
+
+  const { headers } = request;
+
+  await authClient.organization.setActive({
+    organizationSlug: slug,
+    fetchOptions: { headers },
+  });
+
+  const organization = await authClient.organization.getFullOrganization({
+    fetchOptions: { headers },
+  });
+
+  return organization;
+});

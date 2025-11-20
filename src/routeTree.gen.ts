@@ -9,29 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
-import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
+import { Route as OrgSlugRouteRouteImport } from './routes/$orgSlug/route'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as OrgSlugIndexRouteImport } from './routes/$orgSlug/index'
 import { Route as organizationGettingStartedRouteImport } from './routes/(organization)/getting-started'
 import { Route as organizationCreateOrganizationRouteImport } from './routes/(organization)/create-organization'
 import { Route as organizationAcceptInvitationRouteImport } from './routes/(organization)/accept-invitation'
 import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
-import { Route as ProtectedpeopleEmployeesRouteImport } from './routes/_protected/(people)/employees'
-import { Route as ProtectedcompanyVisitorsRouteImport } from './routes/_protected/(company)/visitors'
-import { Route as ProtectedcompanySchedulesRouteImport } from './routes/_protected/(company)/schedules'
-import { Route as ProtectedcompanyPermissionsRouteImport } from './routes/_protected/(company)/permissions'
-import { Route as ProtectedcompanyLocationsRouteImport } from './routes/_protected/(company)/locations'
-import { Route as ProtectedcompanyAttendanceRouteImport } from './routes/_protected/(company)/attendance'
-import { Route as ProtectedcompanyAnnouncementsRouteImport } from './routes/_protected/(company)/announcements'
+import { Route as OrgSlugpeopleEmployeesRouteImport } from './routes/$orgSlug/(people)/employees'
+import { Route as OrgSlugcompanyVisitorsRouteImport } from './routes/$orgSlug/(company)/visitors'
+import { Route as OrgSlugcompanySettingsRouteImport } from './routes/$orgSlug/(company)/settings'
+import { Route as OrgSlugcompanySchedulesRouteImport } from './routes/$orgSlug/(company)/schedules'
+import { Route as OrgSlugcompanyPermissionsRouteImport } from './routes/$orgSlug/(company)/permissions'
+import { Route as OrgSlugcompanyLocationsRouteImport } from './routes/$orgSlug/(company)/locations'
+import { Route as OrgSlugcompanyAttendanceRouteImport } from './routes/$orgSlug/(company)/attendance'
+import { Route as OrgSlugcompanyAnnouncementsRouteImport } from './routes/$orgSlug/(company)/announcements'
 
-const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
-  id: '/_protected',
+const OrgSlugRouteRoute = OrgSlugRouteRouteImport.update({
+  id: '/$orgSlug',
+  path: '/$orgSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ProtectedRouteRoute,
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrgSlugIndexRoute = OrgSlugIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => OrgSlugRouteRoute,
 } as any)
 const organizationGettingStartedRoute =
   organizationGettingStartedRouteImport.update({
@@ -61,147 +69,163 @@ const authLoginRoute = authLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProtectedpeopleEmployeesRoute =
-  ProtectedpeopleEmployeesRouteImport.update({
-    id: '/(people)/employees',
-    path: '/employees',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedcompanyVisitorsRoute =
-  ProtectedcompanyVisitorsRouteImport.update({
-    id: '/(company)/visitors',
-    path: '/visitors',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedcompanySchedulesRoute =
-  ProtectedcompanySchedulesRouteImport.update({
-    id: '/(company)/schedules',
-    path: '/schedules',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedcompanyPermissionsRoute =
-  ProtectedcompanyPermissionsRouteImport.update({
+const OrgSlugpeopleEmployeesRoute = OrgSlugpeopleEmployeesRouteImport.update({
+  id: '/(people)/employees',
+  path: '/employees',
+  getParentRoute: () => OrgSlugRouteRoute,
+} as any)
+const OrgSlugcompanyVisitorsRoute = OrgSlugcompanyVisitorsRouteImport.update({
+  id: '/(company)/visitors',
+  path: '/visitors',
+  getParentRoute: () => OrgSlugRouteRoute,
+} as any)
+const OrgSlugcompanySettingsRoute = OrgSlugcompanySettingsRouteImport.update({
+  id: '/(company)/settings',
+  path: '/settings',
+  getParentRoute: () => OrgSlugRouteRoute,
+} as any)
+const OrgSlugcompanySchedulesRoute = OrgSlugcompanySchedulesRouteImport.update({
+  id: '/(company)/schedules',
+  path: '/schedules',
+  getParentRoute: () => OrgSlugRouteRoute,
+} as any)
+const OrgSlugcompanyPermissionsRoute =
+  OrgSlugcompanyPermissionsRouteImport.update({
     id: '/(company)/permissions',
     path: '/permissions',
-    getParentRoute: () => ProtectedRouteRoute,
+    getParentRoute: () => OrgSlugRouteRoute,
   } as any)
-const ProtectedcompanyLocationsRoute =
-  ProtectedcompanyLocationsRouteImport.update({
-    id: '/(company)/locations',
-    path: '/locations',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedcompanyAttendanceRoute =
-  ProtectedcompanyAttendanceRouteImport.update({
+const OrgSlugcompanyLocationsRoute = OrgSlugcompanyLocationsRouteImport.update({
+  id: '/(company)/locations',
+  path: '/locations',
+  getParentRoute: () => OrgSlugRouteRoute,
+} as any)
+const OrgSlugcompanyAttendanceRoute =
+  OrgSlugcompanyAttendanceRouteImport.update({
     id: '/(company)/attendance',
     path: '/attendance',
-    getParentRoute: () => ProtectedRouteRoute,
+    getParentRoute: () => OrgSlugRouteRoute,
   } as any)
-const ProtectedcompanyAnnouncementsRoute =
-  ProtectedcompanyAnnouncementsRouteImport.update({
+const OrgSlugcompanyAnnouncementsRoute =
+  OrgSlugcompanyAnnouncementsRouteImport.update({
     id: '/(company)/announcements',
     path: '/announcements',
-    getParentRoute: () => ProtectedRouteRoute,
+    getParentRoute: () => OrgSlugRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
+  '/$orgSlug': typeof OrgSlugRouteRouteWithChildren
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
   '/getting-started': typeof organizationGettingStartedRoute
-  '/': typeof ProtectedIndexRoute
-  '/announcements': typeof ProtectedcompanyAnnouncementsRoute
-  '/attendance': typeof ProtectedcompanyAttendanceRoute
-  '/locations': typeof ProtectedcompanyLocationsRoute
-  '/permissions': typeof ProtectedcompanyPermissionsRoute
-  '/schedules': typeof ProtectedcompanySchedulesRoute
-  '/visitors': typeof ProtectedcompanyVisitorsRoute
-  '/employees': typeof ProtectedpeopleEmployeesRoute
+  '/$orgSlug/': typeof OrgSlugIndexRoute
+  '/$orgSlug/announcements': typeof OrgSlugcompanyAnnouncementsRoute
+  '/$orgSlug/attendance': typeof OrgSlugcompanyAttendanceRoute
+  '/$orgSlug/locations': typeof OrgSlugcompanyLocationsRoute
+  '/$orgSlug/permissions': typeof OrgSlugcompanyPermissionsRoute
+  '/$orgSlug/schedules': typeof OrgSlugcompanySchedulesRoute
+  '/$orgSlug/settings': typeof OrgSlugcompanySettingsRoute
+  '/$orgSlug/visitors': typeof OrgSlugcompanyVisitorsRoute
+  '/$orgSlug/employees': typeof OrgSlugpeopleEmployeesRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
   '/accept-invitation': typeof organizationAcceptInvitationRoute
   '/create-organization': typeof organizationCreateOrganizationRoute
   '/getting-started': typeof organizationGettingStartedRoute
-  '/': typeof ProtectedIndexRoute
-  '/announcements': typeof ProtectedcompanyAnnouncementsRoute
-  '/attendance': typeof ProtectedcompanyAttendanceRoute
-  '/locations': typeof ProtectedcompanyLocationsRoute
-  '/permissions': typeof ProtectedcompanyPermissionsRoute
-  '/schedules': typeof ProtectedcompanySchedulesRoute
-  '/visitors': typeof ProtectedcompanyVisitorsRoute
-  '/employees': typeof ProtectedpeopleEmployeesRoute
+  '/$orgSlug': typeof OrgSlugIndexRoute
+  '/$orgSlug/announcements': typeof OrgSlugcompanyAnnouncementsRoute
+  '/$orgSlug/attendance': typeof OrgSlugcompanyAttendanceRoute
+  '/$orgSlug/locations': typeof OrgSlugcompanyLocationsRoute
+  '/$orgSlug/permissions': typeof OrgSlugcompanyPermissionsRoute
+  '/$orgSlug/schedules': typeof OrgSlugcompanySchedulesRoute
+  '/$orgSlug/settings': typeof OrgSlugcompanySettingsRoute
+  '/$orgSlug/visitors': typeof OrgSlugcompanyVisitorsRoute
+  '/$orgSlug/employees': typeof OrgSlugpeopleEmployeesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_protected': typeof ProtectedRouteRouteWithChildren
+  '/': typeof IndexRoute
+  '/$orgSlug': typeof OrgSlugRouteRouteWithChildren
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/signup': typeof authSignupRoute
   '/(organization)/accept-invitation': typeof organizationAcceptInvitationRoute
   '/(organization)/create-organization': typeof organizationCreateOrganizationRoute
   '/(organization)/getting-started': typeof organizationGettingStartedRoute
-  '/_protected/': typeof ProtectedIndexRoute
-  '/_protected/(company)/announcements': typeof ProtectedcompanyAnnouncementsRoute
-  '/_protected/(company)/attendance': typeof ProtectedcompanyAttendanceRoute
-  '/_protected/(company)/locations': typeof ProtectedcompanyLocationsRoute
-  '/_protected/(company)/permissions': typeof ProtectedcompanyPermissionsRoute
-  '/_protected/(company)/schedules': typeof ProtectedcompanySchedulesRoute
-  '/_protected/(company)/visitors': typeof ProtectedcompanyVisitorsRoute
-  '/_protected/(people)/employees': typeof ProtectedpeopleEmployeesRoute
+  '/$orgSlug/': typeof OrgSlugIndexRoute
+  '/$orgSlug/(company)/announcements': typeof OrgSlugcompanyAnnouncementsRoute
+  '/$orgSlug/(company)/attendance': typeof OrgSlugcompanyAttendanceRoute
+  '/$orgSlug/(company)/locations': typeof OrgSlugcompanyLocationsRoute
+  '/$orgSlug/(company)/permissions': typeof OrgSlugcompanyPermissionsRoute
+  '/$orgSlug/(company)/schedules': typeof OrgSlugcompanySchedulesRoute
+  '/$orgSlug/(company)/settings': typeof OrgSlugcompanySettingsRoute
+  '/$orgSlug/(company)/visitors': typeof OrgSlugcompanyVisitorsRoute
+  '/$orgSlug/(people)/employees': typeof OrgSlugpeopleEmployeesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
+    | '/$orgSlug'
     | '/login'
     | '/signup'
     | '/accept-invitation'
     | '/create-organization'
     | '/getting-started'
-    | '/'
-    | '/announcements'
-    | '/attendance'
-    | '/locations'
-    | '/permissions'
-    | '/schedules'
-    | '/visitors'
-    | '/employees'
+    | '/$orgSlug/'
+    | '/$orgSlug/announcements'
+    | '/$orgSlug/attendance'
+    | '/$orgSlug/locations'
+    | '/$orgSlug/permissions'
+    | '/$orgSlug/schedules'
+    | '/$orgSlug/settings'
+    | '/$orgSlug/visitors'
+    | '/$orgSlug/employees'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/login'
     | '/signup'
     | '/accept-invitation'
     | '/create-organization'
     | '/getting-started'
-    | '/'
-    | '/announcements'
-    | '/attendance'
-    | '/locations'
-    | '/permissions'
-    | '/schedules'
-    | '/visitors'
-    | '/employees'
+    | '/$orgSlug'
+    | '/$orgSlug/announcements'
+    | '/$orgSlug/attendance'
+    | '/$orgSlug/locations'
+    | '/$orgSlug/permissions'
+    | '/$orgSlug/schedules'
+    | '/$orgSlug/settings'
+    | '/$orgSlug/visitors'
+    | '/$orgSlug/employees'
   id:
     | '__root__'
-    | '/_protected'
+    | '/'
+    | '/$orgSlug'
     | '/(auth)/login'
     | '/(auth)/signup'
     | '/(organization)/accept-invitation'
     | '/(organization)/create-organization'
     | '/(organization)/getting-started'
-    | '/_protected/'
-    | '/_protected/(company)/announcements'
-    | '/_protected/(company)/attendance'
-    | '/_protected/(company)/locations'
-    | '/_protected/(company)/permissions'
-    | '/_protected/(company)/schedules'
-    | '/_protected/(company)/visitors'
-    | '/_protected/(people)/employees'
+    | '/$orgSlug/'
+    | '/$orgSlug/(company)/announcements'
+    | '/$orgSlug/(company)/attendance'
+    | '/$orgSlug/(company)/locations'
+    | '/$orgSlug/(company)/permissions'
+    | '/$orgSlug/(company)/schedules'
+    | '/$orgSlug/(company)/settings'
+    | '/$orgSlug/(company)/visitors'
+    | '/$orgSlug/(people)/employees'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
+  IndexRoute: typeof IndexRoute
+  OrgSlugRouteRoute: typeof OrgSlugRouteRouteWithChildren
   authLoginRoute: typeof authLoginRoute
   authSignupRoute: typeof authSignupRoute
   organizationAcceptInvitationRoute: typeof organizationAcceptInvitationRoute
@@ -211,19 +235,26 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_protected': {
-      id: '/_protected'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof ProtectedRouteRouteImport
+    '/$orgSlug': {
+      id: '/$orgSlug'
+      path: '/$orgSlug'
+      fullPath: '/$orgSlug'
+      preLoaderRoute: typeof OrgSlugRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_protected/': {
-      id: '/_protected/'
+    '/': {
+      id: '/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof ProtectedIndexRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$orgSlug/': {
+      id: '/$orgSlug/'
+      path: '/'
+      fullPath: '/$orgSlug/'
+      preLoaderRoute: typeof OrgSlugIndexRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
     }
     '/(organization)/getting-started': {
       id: '/(organization)/getting-started'
@@ -260,86 +291,96 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_protected/(people)/employees': {
-      id: '/_protected/(people)/employees'
+    '/$orgSlug/(people)/employees': {
+      id: '/$orgSlug/(people)/employees'
       path: '/employees'
-      fullPath: '/employees'
-      preLoaderRoute: typeof ProtectedpeopleEmployeesRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      fullPath: '/$orgSlug/employees'
+      preLoaderRoute: typeof OrgSlugpeopleEmployeesRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
     }
-    '/_protected/(company)/visitors': {
-      id: '/_protected/(company)/visitors'
+    '/$orgSlug/(company)/visitors': {
+      id: '/$orgSlug/(company)/visitors'
       path: '/visitors'
-      fullPath: '/visitors'
-      preLoaderRoute: typeof ProtectedcompanyVisitorsRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      fullPath: '/$orgSlug/visitors'
+      preLoaderRoute: typeof OrgSlugcompanyVisitorsRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
     }
-    '/_protected/(company)/schedules': {
-      id: '/_protected/(company)/schedules'
+    '/$orgSlug/(company)/settings': {
+      id: '/$orgSlug/(company)/settings'
+      path: '/settings'
+      fullPath: '/$orgSlug/settings'
+      preLoaderRoute: typeof OrgSlugcompanySettingsRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
+    }
+    '/$orgSlug/(company)/schedules': {
+      id: '/$orgSlug/(company)/schedules'
       path: '/schedules'
-      fullPath: '/schedules'
-      preLoaderRoute: typeof ProtectedcompanySchedulesRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      fullPath: '/$orgSlug/schedules'
+      preLoaderRoute: typeof OrgSlugcompanySchedulesRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
     }
-    '/_protected/(company)/permissions': {
-      id: '/_protected/(company)/permissions'
+    '/$orgSlug/(company)/permissions': {
+      id: '/$orgSlug/(company)/permissions'
       path: '/permissions'
-      fullPath: '/permissions'
-      preLoaderRoute: typeof ProtectedcompanyPermissionsRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      fullPath: '/$orgSlug/permissions'
+      preLoaderRoute: typeof OrgSlugcompanyPermissionsRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
     }
-    '/_protected/(company)/locations': {
-      id: '/_protected/(company)/locations'
+    '/$orgSlug/(company)/locations': {
+      id: '/$orgSlug/(company)/locations'
       path: '/locations'
-      fullPath: '/locations'
-      preLoaderRoute: typeof ProtectedcompanyLocationsRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      fullPath: '/$orgSlug/locations'
+      preLoaderRoute: typeof OrgSlugcompanyLocationsRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
     }
-    '/_protected/(company)/attendance': {
-      id: '/_protected/(company)/attendance'
+    '/$orgSlug/(company)/attendance': {
+      id: '/$orgSlug/(company)/attendance'
       path: '/attendance'
-      fullPath: '/attendance'
-      preLoaderRoute: typeof ProtectedcompanyAttendanceRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      fullPath: '/$orgSlug/attendance'
+      preLoaderRoute: typeof OrgSlugcompanyAttendanceRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
     }
-    '/_protected/(company)/announcements': {
-      id: '/_protected/(company)/announcements'
+    '/$orgSlug/(company)/announcements': {
+      id: '/$orgSlug/(company)/announcements'
       path: '/announcements'
-      fullPath: '/announcements'
-      preLoaderRoute: typeof ProtectedcompanyAnnouncementsRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      fullPath: '/$orgSlug/announcements'
+      preLoaderRoute: typeof OrgSlugcompanyAnnouncementsRouteImport
+      parentRoute: typeof OrgSlugRouteRoute
     }
   }
 }
 
-interface ProtectedRouteRouteChildren {
-  ProtectedIndexRoute: typeof ProtectedIndexRoute
-  ProtectedcompanyAnnouncementsRoute: typeof ProtectedcompanyAnnouncementsRoute
-  ProtectedcompanyAttendanceRoute: typeof ProtectedcompanyAttendanceRoute
-  ProtectedcompanyLocationsRoute: typeof ProtectedcompanyLocationsRoute
-  ProtectedcompanyPermissionsRoute: typeof ProtectedcompanyPermissionsRoute
-  ProtectedcompanySchedulesRoute: typeof ProtectedcompanySchedulesRoute
-  ProtectedcompanyVisitorsRoute: typeof ProtectedcompanyVisitorsRoute
-  ProtectedpeopleEmployeesRoute: typeof ProtectedpeopleEmployeesRoute
+interface OrgSlugRouteRouteChildren {
+  OrgSlugIndexRoute: typeof OrgSlugIndexRoute
+  OrgSlugcompanyAnnouncementsRoute: typeof OrgSlugcompanyAnnouncementsRoute
+  OrgSlugcompanyAttendanceRoute: typeof OrgSlugcompanyAttendanceRoute
+  OrgSlugcompanyLocationsRoute: typeof OrgSlugcompanyLocationsRoute
+  OrgSlugcompanyPermissionsRoute: typeof OrgSlugcompanyPermissionsRoute
+  OrgSlugcompanySchedulesRoute: typeof OrgSlugcompanySchedulesRoute
+  OrgSlugcompanySettingsRoute: typeof OrgSlugcompanySettingsRoute
+  OrgSlugcompanyVisitorsRoute: typeof OrgSlugcompanyVisitorsRoute
+  OrgSlugpeopleEmployeesRoute: typeof OrgSlugpeopleEmployeesRoute
 }
 
-const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
-  ProtectedIndexRoute: ProtectedIndexRoute,
-  ProtectedcompanyAnnouncementsRoute: ProtectedcompanyAnnouncementsRoute,
-  ProtectedcompanyAttendanceRoute: ProtectedcompanyAttendanceRoute,
-  ProtectedcompanyLocationsRoute: ProtectedcompanyLocationsRoute,
-  ProtectedcompanyPermissionsRoute: ProtectedcompanyPermissionsRoute,
-  ProtectedcompanySchedulesRoute: ProtectedcompanySchedulesRoute,
-  ProtectedcompanyVisitorsRoute: ProtectedcompanyVisitorsRoute,
-  ProtectedpeopleEmployeesRoute: ProtectedpeopleEmployeesRoute,
+const OrgSlugRouteRouteChildren: OrgSlugRouteRouteChildren = {
+  OrgSlugIndexRoute: OrgSlugIndexRoute,
+  OrgSlugcompanyAnnouncementsRoute: OrgSlugcompanyAnnouncementsRoute,
+  OrgSlugcompanyAttendanceRoute: OrgSlugcompanyAttendanceRoute,
+  OrgSlugcompanyLocationsRoute: OrgSlugcompanyLocationsRoute,
+  OrgSlugcompanyPermissionsRoute: OrgSlugcompanyPermissionsRoute,
+  OrgSlugcompanySchedulesRoute: OrgSlugcompanySchedulesRoute,
+  OrgSlugcompanySettingsRoute: OrgSlugcompanySettingsRoute,
+  OrgSlugcompanyVisitorsRoute: OrgSlugcompanyVisitorsRoute,
+  OrgSlugpeopleEmployeesRoute: OrgSlugpeopleEmployeesRoute,
 }
 
-const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
-  ProtectedRouteRouteChildren,
+const OrgSlugRouteRouteWithChildren = OrgSlugRouteRoute._addFileChildren(
+  OrgSlugRouteRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
+  IndexRoute: IndexRoute,
+  OrgSlugRouteRoute: OrgSlugRouteRouteWithChildren,
   authLoginRoute: authLoginRoute,
   authSignupRoute: authSignupRoute,
   organizationAcceptInvitationRoute: organizationAcceptInvitationRoute,

@@ -87,14 +87,39 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useUserStore();
   const router = useRouter();
   const currentPath = router.state.location.pathname;
+  const slug =
+    organization?.slug ??
+    (organization as any)?.organization?.slug ??
+    "";
+  const basePath = slug ? `/${slug}` : "/";
+
+  const resolvePath = (url: string) => {
+    if (url === "#") {
+      return "#";
+    }
+
+    if (!slug) {
+      return url;
+    }
+
+    if (url === "/") {
+      return basePath;
+    }
+
+    return `${basePath}${url.startsWith("/") ? url : `/${url}`}`;
+  };
 
   // Check if a URL matches the current path
   const isActive = (url: string) => {
     if (url === "#") return false;
-    if (url === "/") {
-      return currentPath === "/";
+    const resolved = resolvePath(url);
+    if (resolved === "#") {
+      return false;
     }
-    return currentPath.startsWith(url);
+    if (url === "/") {
+      return currentPath === resolved;
+    }
+    return currentPath.startsWith(resolved);
   };
 
   // Check if any child item is active (for parent menu items)
@@ -109,7 +134,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link to="/">
+              <Link to={resolvePath("/")}>
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                   <img
                     src="/sky-logo.png"
@@ -143,7 +168,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {data.navMain.map((item) => (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild isActive={isActive(item.url) || hasActiveChild(item.items)}>
-                  <Link to={item.url} className="font-medium">
+                  <Link to={resolvePath(item.url)} className="font-medium">
                     {item.title}
                   </Link>
                 </SidebarMenuButton>
@@ -152,7 +177,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     {item.items.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
                         <SidebarMenuSubButton asChild isActive={isActive(subItem.url)}>
-                          <Link to={subItem.url}>{subItem.title}</Link>
+                          <Link to={resolvePath(subItem.url)}>{subItem.title}</Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}
