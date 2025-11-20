@@ -1,25 +1,26 @@
 import { SignupForm } from "@/components/signup-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { isAuthenticated } from "@/server/auth.server";
+import {
+  getAuthRedirectTarget,
+  sanitizeRedirectPath,
+} from "@/lib/auth-redirect";
 
 export const Route = createFileRoute("/(auth)/signup")({
   component: RouteComponent,
   beforeLoad: async ({ search }) => {
     const auth = await isAuthenticated();
-    const redirectPath = (search as any).redirect as string;
-    const token = (search as any).token as string;
 
     if (auth) {
-      // If authenticated and has invitation token, redirect to accept-invitation
-      if (redirectPath === "/accept-invitation" && token) {
-        throw redirect({ to: "/accept-invitation", search: { token } });
+      const target = getAuthRedirectTarget(search, true);
+      if (target) {
+        throw redirect(target);
       }
-      throw redirect({ to: "/" });
     }
   },
   validateSearch: (search: Record<string, unknown>) => {
     return {
-      redirect: (search.redirect as string) || "",
+      redirect: sanitizeRedirectPath(search.redirect),
       token: (search.token as string) || "",
     };
   },

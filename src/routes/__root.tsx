@@ -19,7 +19,10 @@ import type { QueryClient } from "@tanstack/react-query";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useUserStore } from "@/store/user-store";
-import { useOrganizationStore } from "@/store/organization-store";
+import {
+  useOrganizationStore,
+  attachCurrentMemberData,
+} from "@/store/organization-store";
 import type { User } from "@/store/user-store";
 import type { Organization } from "@/store/organization-store";
 import { useEffect, useMemo } from "react";
@@ -146,12 +149,9 @@ function AuthDataSynchronizer({
   const { user, organization } = useAuthData();
 
   useEffect(() => {
-    if (user) {
-      setUser(user);
-    }
-    if (organization) {
-      setOrganization(organization);
-    }
+    setUser(user ?? null);
+    const enrichedOrganization = attachCurrentMemberData(organization ?? null, user);
+    setOrganization(enrichedOrganization);
   }, [user, organization, setUser, setOrganization]);
 
   return null;

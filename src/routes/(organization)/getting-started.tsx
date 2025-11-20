@@ -9,42 +9,50 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuthData } from "@/hooks/use-auth-data";
-import { getUserInvitations, getUserOrganizations } from "@/server/organization.server";
-import { isAuthenticated, notMemberRoute } from "@/server/auth.server";
+import { getUserOrganizations } from "@/server/organization.server";
+import { ensureProtectedContext } from "@/lib/protected-context-query";
+import skyLogo from "@/assets/sky-logo.png"
 
 export const Route = createFileRoute("/(organization)/getting-started")({
   component: RouteComponent,
-  beforeLoad: async () => {
-    const auth = await isAuthenticated();
-    const isMember = await notMemberRoute();
-    const invitations = await getUserInvitations();
-    const hasPendingInvitations = invitations?.data?.some((invitation) => invitation.status === "pending");
+  beforeLoad: async ({ context }) => {
+    const {
+      isAuthenticated,
+      membershipStatus,
+      organization,
+      pendingInvitations,
+    } = await ensureProtectedContext(context?.queryClient);
 
-    if (!auth) {
+    if (!isAuthenticated) {
       throw redirect({ to: "/login" });
     }
-    
-    if (hasPendingInvitations) {
-      const invitation = invitations?.data?.find((invitation) => invitation.status === "pending");
-      if (invitation?.status !== "pending") {
-        return;
-      }
 
-      throw redirect({ to: "/accept-invitation", search: { token: invitation?.id || "" } });
+    const hasOrganization = Boolean(organization?.data);
+    if (hasOrganization) {
+      throw redirect({ to: "/" });
     }
 
-    if (!isMember) {
-      throw redirect({ to: "/" });
+    const shouldAcceptInvitation =
+      (membershipStatus === "member" || membershipStatus === "unknown" || membershipStatus === "none") &&
+      pendingInvitations.length > 0;
+
+    if (shouldAcceptInvitation) {
+      const invitation = pendingInvitations[0];
+      throw redirect({
+        to: "/accept-invitation",
+        search: { token: invitation?.id || "" },
+      });
     }
   },
 });
 
 function RouteComponent() {
   const navigate = useNavigate();
-  const { session } = useAuthData();
-  const [hasOrganizations, setHasOrganizations] = useState(false);
+  const { session, organization } = useAuthData();
+  const [hasOrganizations, setHasOrganizations] = useState(Boolean(organization));
 
   useEffect(() => {
+    // Fallback lookup in case organization data isn't yet available in React Query cache
     getUserOrganizations().then((organizations) => {
       if (organizations.data && organizations.data.length > 0) {
         const org = Boolean(organizations.data[0].id);
@@ -53,18 +61,16 @@ function RouteComponent() {
         setHasOrganizations(false);
       }
     });
-  }, [])
+  }, [organization?.id])
 
   return (
     <div className="container mx-auto flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-4xl">
-        <div className="mb-8 text-center">
+        <div className="mb-8 text-center flex flex-col items-center gap-2">
+          <img src="/sky-logo.png" alt="Sky Logo" className="w-16 h-16 mb-4" />
           <h1 className="text-3xl font-bold tracking-tight">
             ¡Bienvenido a SkyHR! 👋
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            Para comenzar, cuéntanos un poco sobre ti
-          </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -244,4 +250,3 @@ function RouteComponent() {
     </div>
   );
 }
-

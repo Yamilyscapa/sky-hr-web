@@ -1,7 +1,8 @@
 import { LogOutIcon, UserIcon, Settings } from "lucide-react";
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, Link } from "@tanstack/react-router";
 import { useUserStore } from "@/store/user-store";
 import { useOrganizationStore } from "@/store/organization-store";
+import { Button } from "@/components/ui/button";
 
 import {
   Sidebar,
@@ -22,6 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { logout } from "@/lib/auth";
 
 const data = {
   navMain: [
@@ -85,14 +87,39 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useUserStore();
   const router = useRouter();
   const currentPath = router.state.location.pathname;
+  const slug =
+    organization?.slug ??
+    (organization as any)?.organization?.slug ??
+    "";
+  const basePath = slug ? `/${slug}` : "/";
+
+  const resolvePath = (url: string) => {
+    if (url === "#") {
+      return "#";
+    }
+
+    if (!slug) {
+      return url;
+    }
+
+    if (url === "/") {
+      return basePath;
+    }
+
+    return `${basePath}${url.startsWith("/") ? url : `/${url}`}`;
+  };
 
   // Check if a URL matches the current path
   const isActive = (url: string) => {
     if (url === "#") return false;
-    if (url === "/") {
-      return currentPath === "/";
+    const resolved = resolvePath(url);
+    if (resolved === "#") {
+      return false;
     }
-    return currentPath.startsWith(url);
+    if (url === "/") {
+      return currentPath === resolved;
+    }
+    return currentPath.startsWith(resolved);
   };
 
   // Check if any child item is active (for parent menu items)
@@ -107,7 +134,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="#">
+              <Link to={resolvePath("/")}>
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                   <img
                     src="/sky-logo.png"
@@ -118,7 +145,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-medium">{organization?.name}</span>
                 </div>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -141,16 +168,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {data.navMain.map((item) => (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild isActive={isActive(item.url) || hasActiveChild(item.items)}>
-                  <a href={item.url} className="font-medium">
+                  <Link to={resolvePath(item.url)} className="font-medium">
                     {item.title}
-                  </a>
+                  </Link>
                 </SidebarMenuButton>
                 {item.items?.length ? (
                   <SidebarMenuSub className="ml-0 border-l-0 px-1.5">
                     {item.items.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
                         <SidebarMenuSubButton asChild isActive={isActive(subItem.url)}>
-                          <a href={subItem.url}>{subItem.title}</a>
+                          <Link to={resolvePath(subItem.url)}>{subItem.title}</Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}
@@ -169,7 +196,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <SidebarMenuButton size="lg" asChild>
-                    <a href="#" className="flex items-center gap-2">
+                    <Link to="#" className="flex items-center gap-2">
                       <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                         <UserIcon className="size-4" />
                       </div>
@@ -179,19 +206,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           {user?.email}
                         </span>
                       </div>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="w-48 p-2">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer">
+                    <Button className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer">
                       <Settings className="size-4" />
                       <span className="text-sm">Configuración</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer text-red-600 hover:text-red-700">
+                    </Button>
+                    <Button variant="ghost" onClick={() => logout()} className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer text-red-600 hover:text-red-700">
                       <LogOutIcon className="size-4" />
                       <span className="text-sm">Cerrar sesión</span>
-                    </div>
+                    </Button>
                   </div>
                 </TooltipContent>
               </Tooltip>

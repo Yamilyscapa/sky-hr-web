@@ -74,6 +74,37 @@ export const login = async (email: string, password: string) => {
   return { data, error };
 };
 
+export async function waitForSessionReady(
+  maxAttempts = 5,
+  delayMs = 150,
+) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const { data, error } = await authClient.getSession(
+      {
+        query: {
+          disableCookieCache: true,
+        },
+      },
+      {
+        onRequest: () => {
+          console.log("Polling for session");
+        },
+        onError: () => {
+          console.log("Session poll failed");
+        },
+      },
+    );
+
+    if (data?.session && !error) {
+      return data.session;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+
+  throw new Error("Session not available yet");
+}
+
 export const isAuthenticated = async () => {
   const { data, error } = await authClient.getSession(
     {
@@ -98,6 +129,12 @@ export const isAuthenticated = async () => {
 };
 
 export const logout = async () => {
-  const { data, error } = await authClient.signOut();
-  return { data, error };
+  const { error } = await authClient.signOut();
+
+  if (error) {
+    console.error("Logout failed:", error);
+    return;
+  }
+  
+  window.location.reload();
 };
