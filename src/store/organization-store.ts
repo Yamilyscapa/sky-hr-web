@@ -9,6 +9,9 @@ export interface Organization {
   createdAt?: Date | string;
   updatedAt?: Date | string;
   metadata?: string | null;
+  members?: Array<Record<string, any>>;
+  member?: Record<string, any> | null;
+  currentMember?: Record<string, any> | null;
   [key: string]: any; // Allow additional properties from Better Auth
 }
 
@@ -23,6 +26,46 @@ export const useOrganizationStore = create<OrganizationStore>((set) => ({
   setOrganization: (organization) => set({ organization }),
   clearOrganization: () => set({ organization: null }),
 }));
+
+type UserLike = {
+  id?: string | null;
+} | null;
+
+export function attachCurrentMemberData(
+  organization: Organization | null,
+  user: UserLike,
+): Organization | null {
+  if (!organization) {
+    return null;
+  }
+
+  if (!user?.id) {
+    return organization;
+  }
+
+  const members = Array.isArray(organization.members)
+    ? organization.members
+    : null;
+
+  if (!members?.length) {
+    return organization;
+  }
+
+  const currentMember = members.find(
+    (member: any) => member?.user?.id === user.id,
+  );
+
+  if (!currentMember) {
+    return organization;
+  }
+
+  return {
+    ...organization,
+    currentMember,
+    member: organization.member ?? currentMember,
+    membership: organization.membership ?? currentMember,
+  };
+}
 
 export type OrganizationRole = "owner" | "admin" | "member" | null;
 

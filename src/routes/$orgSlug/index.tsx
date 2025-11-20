@@ -84,9 +84,13 @@ import {
   startOfMonth,
 } from "@/lib/month-utils";
 import { MonthPaginationControls } from "@/components/month-pagination-controls";
-import { useOrganizationStore } from "@/store/organization-store";
+import { useUserStore } from "@/store/user-store";
+import {
+  useOrganizationStore,
+  attachCurrentMemberData,
+} from "@/store/organization-store";
 
-export const Route = createFileRoute("/_protected/")({
+export const Route = createFileRoute("/$orgSlug/")({
   component: App,
   beforeLoad: async () => {
   },
@@ -277,6 +281,7 @@ function App() {
   // QUERIES PARA OBTENER DATOS REALES DE LA API
   // ============================================================================
 
+  const { orgSlug } = Route.useParams();
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const selectedMonthValue = formatMonthValue(selectedMonth);
   const selectedMonthLabel = formatMonthLabel(selectedMonth);
@@ -328,10 +333,12 @@ function App() {
   });
 
   const setOrganizationStore = useOrganizationStore((state) => state.setOrganization);
+  const user = useUserStore((state) => state.user);
 
   useEffect(() => {
-    setOrganizationStore(organization ?? null);
-  }, [organization, setOrganizationStore]);
+    const enriched = attachCurrentMemberData(organization ?? null, user);
+    setOrganizationStore(enriched);
+  }, [organization, user, setOrganizationStore]);
 
   // Obtener geofences (sucursales/ubicaciones)
   const { data: geofences } = useQuery({
@@ -826,7 +833,12 @@ function App() {
                 Usa este resumen para priorizar revisiones y mantener el registro mensual actualizado.
               </p>
               <Button size="sm" asChild>
-                <Link to="/attendance">Gestionar asistencia</Link>
+                <Link
+                  to="/$orgSlug/(company)/attendance"
+                  params={{ orgSlug }}
+                >
+                  Gestionar asistencia
+                </Link>
               </Button>
             </div>
           </CardContent>
