@@ -104,6 +104,23 @@ export function VisitorDetailsDialog({
               </p>
             </div>
           )}
+          {visitor.qrUrl && (
+            <div className="mt-6 flex flex-col items-center justify-center border-t pt-6">
+              <p className="text-sm font-medium mb-3 text-muted-foreground">
+                Código QR de Acceso
+              </p>
+              <div className="bg-white p-2 rounded-lg border shadow-sm">
+                <img
+                  src={visitor.qrUrl}
+                  alt={`QR de ${visitor.name}`}
+                  className="w-48 h-48 object-contain"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 text-center max-w-[200px]">
+                Este código debe ser presentado en el punto de acceso.
+              </p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

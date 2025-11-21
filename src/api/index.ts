@@ -68,6 +68,7 @@ export type ApiVisitor = {
   status: VisitorStatus;
   approvedByUserId?: string | null;
   approvedAt?: string | null;
+  qrUrl?: string | null;
 };
 
 export type VisitorPayload = {
@@ -117,9 +118,9 @@ export class API {
   private baseUrl: string;
 
   constructor() {
-     this.baseUrl = import.meta.env.VITE_API_URL;
+    this.baseUrl = import.meta.env.VITE_API_URL;
 
-     console.log(this.baseUrl);
+    console.log(this.baseUrl);
   }
 
   // Helper method to handle responses
@@ -248,7 +249,7 @@ export class API {
 
   public async createAnnouncement(data: AnnouncementPayload) {
     const response = await this.post(`/announcements`, data);
-    
+
     return await this.handleResponse<SingleRecordResponse<ApiAnnouncement>>(response);
   }
 
@@ -573,12 +574,12 @@ export class API {
 
     const queryString = searchParams.toString();
     const url = `/visitors${queryString ? `?${queryString}` : ""}`;
-    
+
     const headers: Record<string, string> = {};
     if (params?.organizationId) {
       headers["x-organization-id"] = params.organizationId;
     }
-    
+
     const response = await this.get(url, Object.keys(headers).length > 0 ? headers : undefined);
     return await this.handleResponse<PaginatedListResponse<ApiVisitor>>(response);
   }

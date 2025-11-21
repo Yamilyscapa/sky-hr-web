@@ -39,6 +39,7 @@ export function normalizeVisitorRecord(raw: any): Visitor {
     status: raw.status,
     approvedByUserId: raw.approved_by_user_id ?? raw.approvedByUserId,
     approvedAt: raw.approved_at ?? raw.approvedAt,
+    qrUrl: raw.qr_url ?? raw.qrUrl,
   };
 }
 
